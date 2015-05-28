@@ -25,32 +25,35 @@ The exception to blocking direct I/O, in Linux, is the kernal [AIO](https://code
 Benchmark
 ----
 
-Here is an example from the included micro-benchmark run on an Intel 530 series 240GB SSD. Maximum iops is reached immediately using the KAIO backend with a queue depth of 32 requests, until the read buffer size surpasses the disk block size of 4K, when iops halfs with each double in buffer size.  Meanwhile, throughput continues to increase even until the 64K buffer size.
+Here is an example from the included micro-benchmark run on an Intel 530 series 240GB SSD over an 8GB logical address space. Maximum iops is reached immediately and is sustained until the read buffer size surpasses the disk page size of 4K, when iops roughly halfs and latency roughly doubles with each double in buffer size.  Meanwhile, throughput continues to increase, with diminishing returns.
 
     backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s
-    kaio    262144  512     32      5134    193     1599    1793    619     51053   24.93   
-    kaio    262144  1024    32      5064    210     1678    1888    617     51762   50.55   
-    kaio    262144  2048    32      5078    189     1540    1729    619     51622   100.83  
-    kaio    131072  4096    32      2489    106     720     826     607     52642   205.64  
-    kaio    131072  8192    32      4321    67      847     915     1054    30327   236.93  
-    kaio    131072  16384   32      7745    119     1324    1444    1890    16922   264.41  
-    kaio    65536   32768   32      5979    43      627     671     2918    10959   342.49  
-    kaio    65536   65536   32      9675    108     1066    1175    4722    6773    423.35  
+    kaio    262144  512     32      5632    199     1860    2060    686     46544   22.73
+    kaio    262144  1024    32      5518    170     1756    1926    672     47503   46.39
+    kaio    262144  2048    32      5535    138     1534    1673    675     47356   92.49
+    kaio    131072  4096    32      2829    114     829     943     689     46324   180.95
+    kaio    131072  8192    32      4849    72      910     982     1183    27025   211.14
+    kaio    131072  16384   32      7386    65      999     1065    1802    17744   277.25
+    kaio    65536   32768   32      5688    18      557     575     2776    11520   360.02
+    kaio    65536   65536   32      9228    61      791     852     4504    7101    443.84
+    kaio    65536   131072  32      17365   142     1606    1749    8476    3773    471.75
+    kaio    32768   262144  32      17025   57      1182    1240    16616   1924    481.15
 
-The pthread backend here is configure to run with 32 parallel I/O threads.  Increasing the thread count will achieve higher
-performance with only slightly more lock and CPU contention.
+The pthread backend here is configured to run with 32 parallel I/O threads.
 
     backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s
-    pthread 262144  512     32      5837    794     1819    2614    711     44906   21.93   
-    pthread 262144  1024    32      5575    663     1947    2611    679     47013   45.91   
-    pthread 262144  2048    32      5770    737     1879    2616    703     45430   88.73   
-    pthread 131072  4096    32      2805    399     930     1330    683     46722   182.51  
-    pthread 131072  8192    32      4454    255     920     1175    1086    29422   229.87  
-    pthread 131072  16384   32      8186    564     651     1215    1997    16011   250.18  
-    pthread 65536   32768   32      6193    141     533     675     3022    10581   330.66  
-    pthread 65536   65536   32      9893    161     558     720     4828    6624    414.01  
+    pthread 262144  512     32      5669    1017    1996    3014    690     46239   22.58
+    pthread 262144  1024    32      5676    993     2050    3044    691     46179   45.10
+    pthread 262144  2048    32      5841    964     2079    3043    711     44875   87.65
+    pthread 131072  4096    32      2835    525     1022    1547    690     46222   180.56
+    pthread 131072  8192    32      5057    506     875     1381    1233    25917   202.48
+    pthread 131072  16384   32      10199   632     858     1490    2488    12850   200.79
+    pthread 65536   32768   32      5534    206     587     793     2700    11841   370.06
+    pthread 65536   65536   32      9244    253     676     929     4511    7089    443.07
+    pthread 65536   131072  32      17135   442     1057    1499    8363    3824    478.06
+    pthread 32768   262144  32      16974   219     856     1076    16566   1930    482.61
 
-**Caveat:** These numbers appear to surpass the published [performance specifications](http://www.intel.com/content/www/us/en/solid-state-drives/solid-state-drives-530-series.html) for the drive. This could be hedging by Intel, or an issue with my measurements, or possibly the size of the logical block range. If you spot an error please contact me! I will test again soon with an 8GB block range.
+These numbers appear to surpass the published [performance specifications](http://www.intel.com/content/www/us/en/solid-state-drives/solid-state-drives-530-series.html) for the drive, which use [Iometer](http://www.iometer.org/) over the same 8GB logical address space and with a queue depth of 32 (# of in-flight requests).
 
 API
 ---

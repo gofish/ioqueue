@@ -15,7 +15,7 @@ args = list(sys.argv[1:])
 binary = args.pop(0)
 path = args.pop(0)
 depth = int(args.pop(0)) if args else 32
-for s in xrange(8):
+for s in xrange(10):
     requests = 1 << (18 - s/3)
     bufsize = 1 << (9 + s)
     test(requests, bufsize, depth, binary, path)

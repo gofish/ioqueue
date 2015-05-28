@@ -4,10 +4,6 @@
 #include <stdlib.h>
 #include "ioqueue.h"
 
-#ifndef ioqueue_MT_THREADS
-#define ioqueue_MT_THREADS 20
-#endif
-
 enum ioqueue_op {
     ioqueue_OP_PREAD,
 };
@@ -224,7 +220,7 @@ ioqueue_init(unsigned int depth)
         return -1;
     }
     _depth = depth;
-    _nqueue = ioqueue_MT_THREADS;
+    _nqueue = depth;
     _queues = malloc(_nqueue * sizeof(_queues[0]));
     if (!_queues) {
         return -1;
@@ -242,8 +238,6 @@ ioqueue_init(unsigned int depth)
         errno = err;
         return -1;
     }
-    _depth = depth;
-    _nqueue = ioqueue_MT_THREADS;
     err = ioqueue_threads_start(&attr);
     pthread_attr_destroy(&attr);
     if (err) {
