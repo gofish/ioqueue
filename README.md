@@ -6,7 +6,7 @@ Fast random-access asynchronous I/O operations in C.
 Building
 ----
 
-Use [`bake`](/pub/scm/?p=bake.git;a=summary).
+Use `make`.
 
 Licence
 ----
