@@ -178,13 +178,10 @@ int ioqueue_reap(unsigned int min)
     struct ioqueue_request *req;
 
     /* cannot wait for more requests than have been submitted */
-    if (min > _nreqs - _nfree) {
+    if (_nfree == _nreqs || min > _nreqs - _nfree) {
         errno = EINVAL;
         return -1;
     }
-
-    /* have any requests been queued?  don't deadlock */
-    if (_nfree == _nreqs) return 0;
 
     /* ensure some requests have been submitted */
     ret = ioqueue_submit();
