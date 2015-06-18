@@ -61,7 +61,8 @@ Overrides.mk: ;
 
 ### Delegate all unspecified goals to a sub-make
 #
-release debug profile coverage %::     force
+release debug profile coverage::     force
+%:: force
 	$(eval export BUILD_TYPE)
 	# Execute this Makefile from a build-specific subdirectory
 	DEST=$${DEST:-"build/$(BUILD_TYPE)"}; \
