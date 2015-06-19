@@ -8,19 +8,25 @@ Building
 
 Use `make`.
 
+Requirements for KAIO backend (`make libioqueue.a`):
+
+* Linux >= 2.6.22 ?
+* libaio
+* librt
+
 Licence
 ----
 
-The library is a small wrapper around each of two backends, Linux kernal AIO (kaio) and POSIX threads (pthreads). The former is release under the terms of the LGPL version 3 or greater, due to the direct use of linux kernel APIs, and the latter is released under the MIT license, provided it is linked against a compatible pthread implementation. All reads and write must be executed on block boundaries in multiples of 512 bytes
+The library is a small wrapper around each of two backends, Linux kernal AIO (kaio) and POSIX threads (Pthreads). The former is released under the terms of the LGPL version 3 or greater, due to the direct use of Linux Kernel APIs, and the latter is released under the MIT license, provided it is linked against a compatible Pthread implementation. All reads and writes must be executed on block boundaries in multiples of 512 bytes.
 
 Synopsis
 ----
 
 The high random-I/O performance of solid-state drives is a relatively novel development in computing that is potentially applicable to a large number of problems.
 
-One approach to maximize performance of an SSD is to use posix threads to execute parallel requests via direct I/O file descriptors. Direct I/O will bypass the kernel buffer cache and execute read and writes directly to the SSD controller. Using threads is necessary, since file I/O is *always* blocking (except, below) and direct I/O will cause a disk read on every call. However, it is also necessary to use many threads in order to saturate the SSD controller, which is backed by several parallel, and individually slow, NANDs.
+One approach to maximize performance of an SSD is to use POSIX threads to execute parallel requests via direct I/O file descriptors. Direct I/O will bypass the kernel buffer cache and execute read and writes directly to the SSD controller. Using threads is necessary, since file I/O is *always* blocking (except, below) and direct I/O will cause a disk read on every call. However, it is also necessary to use many threads in order to saturate the SSD controller, which is backed by several parallel and individually slow NANDs.
 
-The exception to blocking direct I/O, in Linux, is the kernal [AIO](https://code.google.com/p/kernel/wiki/AIOUserGuide) interface. These syscalls provide user-space a low-level interface to queue, reap, and poll asynchronous direct I/O requests. In writing and benchmarking `ioqueue` for random reads I found that KAIO on average could match or beat the throughput of the pthread implementation while decreasing overall CPU usage and request latency. Both backends are able to acheive full read performance out of most SSDs.
+The exception to blocking direct I/O on Linux is the kernel [AIO](https://code.google.com/p/kernel/wiki/AIOUserGuide) interface. These syscalls provide user-space a low-level interface to queue, reap, and poll asynchronous direct I/O requests. In writing and benchmarking `ioqueue` for random reads I found that KAIO on average could match or beat the throughput of the Pthread implementation while decreasing overall CPU usage and request latency. Both backends are able to acheive full read performance out of most SSDs.
 
 Benchmark
 ----
@@ -39,7 +45,7 @@ Here is an example from the included micro-benchmark run on an Intel 530 series 
     kaio    65536   131072  32      17365   142     1606    1749    8476    3773    471.75
     kaio    32768   262144  32      17025   57      1182    1240    16616   1924    481.15
 
-The pthread backend here is configured to run with 32 parallel I/O threads.
+The Pthread backend here is configured to run with 32 parallel I/O threads.
 
     backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s
     pthread 262144  512     32      5669    1017    1996    3014    690     46239   22.58
@@ -64,3 +70,15 @@ Development Notes
 ----
 
 The library only supports read operations for the moment. A matching write API, via `ioqueue_write()`, is planned for development.
+
+The included benchmark is the best usage example. The [`ioqueue_bench()`](http://www.procself.net/pub/scm/?p=ioqueue.git;a=blob;f=bench.cc;h=83cceb4440b5b9e211d5ae459767cd38cd52507e;hb=HEAD#l169) function contains the ioqueue API calls.
+
+The benchmark generates `REQUEST` read requests of size `BUFSIZE` each with a random offset aligned to `BUFSIZE`. Each request is queued, using `ioqueue_pread()`, which takes a file descriptor, an output buffer, a buffer length, the file offset, and a callback. The file descriptor must be open for reading with flag `O_DIRECT` and the callback will be executed asynchronously on the current thread at some point when it called via `ioqueue_reap`.
+
+The function `ioqueue_reap()` checks the queue for completed requests and executes their callback functions, returning the number of requests processed, which may be 0, or -1 on error. A non-zero `min` parameter, if specified, will cause the function to block until `min` requests have completed (KAIO), or at least 1 request has completed (Pthreads).
+
+In the benchmark, the reap is executed after each pread with a `min` parameter of either 0, when fewer requests are in flight than the depth of the I/O queue, or 1. It is assumed that minimizing request latency is a priority and that reaping an empty queue is a fast operation (no syscall). For the KAIO backend this feature is provided by libaio. For the Pthread backend, an empty queue implies no lock contention. Once the maximum number of in-flight requests is reached, the value 1 is passed and the reap will block until one or more requests have completed, thus freeing some space in the queue.
+
+The API is single-threaded and is intended to be used in a single process with no threads, or via a single I/O manager thread. The I/O itself is asynchronous so this main process/thread can do other work while the queue is full and `ioqueue_reap(0)` returns 0. Once the I/O is complete, callback functions are executed on main thread during the next call to `ioqueue_reap()`.
+
+On the KAIO backend, there is support for using `poll()` to detect I/O readiness. The file descriptor returned from `ioqueue_eventfd()` will receive `POLL_IN/OUT/ERR` notifications when individual requests have completed or failed. This is less efficient than directly reaping requests in a data-driven program, but may be useful for e.g. a network server that already processes events on many file descriptors via polling. In this case the server may process other network I/O events as they occurs instead of blocking during `ioqueue_reap()` for the completion of disk I/O.
