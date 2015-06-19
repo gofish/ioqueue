@@ -10,7 +10,7 @@
 
 /** KAIO l-value helpers **/
 /* the request file operation */
-#define IOCB_OP(iocb)        (*(unsigned short*)&((iocb)->aio_lio_opcode))
+#define IOCB_OP(iocbp)       (*(unsigned short*)&((iocbp)->aio_lio_opcode))
 /* the request file descriptor */
 #define IOCB_FD(iocbp)         (*(unsigned int*)&((iocbp)->aio_fildes))
 /* the request buffer */
@@ -156,8 +156,9 @@ int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb_pread 
 int ioqueue_submit()
 {
     int i;
-    for (i = 0; i < _nwait; ) {
-        int ret = io_submit(_ctx, _nwait - i, _io_reqs + i);
+    int ret;
+    for (i = 0; i < _nwait; i += ret) {
+        ret = io_submit(_ctx, _nwait - i, _io_reqs + i);
         if (ret < 0) {
             /* ensure wait-queue occupies the head of the array */
             memmove(_io_reqs, _io_reqs + i, _nwait - i);
@@ -165,7 +166,6 @@ int ioqueue_submit()
             errno = -ret;
             return -1;
         }
-        i += ret;
     }
     _nwait -= i;
     return i;
