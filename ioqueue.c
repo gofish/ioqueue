@@ -135,6 +135,10 @@ static void ioqueue_request_free(struct ioqueue_request *req)
 int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb_pread cb, void *cb_data)
 {
     struct ioqueue_request *req;
+    if (fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
     req = ioqueue_request_alloc();
     if (req == NULL) return -1;
 
