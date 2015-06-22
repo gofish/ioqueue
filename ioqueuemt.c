@@ -252,6 +252,7 @@ ioqueue_init(unsigned int depth)
 int
 ioqueue_eventfd()
 {
+    errno = ENOTSUP;
     return -1;
 }
 
