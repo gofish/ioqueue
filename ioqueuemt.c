@@ -40,18 +40,6 @@ static struct ioqueue_queue *_queues = NULL;
 static pthread_mutex_t _reap_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t _reap_cond = PTHREAD_COND_INITIALIZER;
 
-static inline unsigned short
-inc(const unsigned short x)
-{
-    return (x + 1) % _depth;
-}
-
-static inline unsigned short
-dec(const unsigned short x)
-{
-    return (x - 1) % _depth;
-}
-
 static int
 ioqueue_request_push(struct ioqueue_queue *queue, const struct ioqueue_request *req)
 {
@@ -140,13 +128,10 @@ ioqueue_request_take(struct ioqueue_queue *queue, struct ioqueue_request *req)
 static void *
 ioqueue_thread_run(void *tdata)
 {
-    struct ioqueue_queue *queue;
     struct ioqueue_request *req;
-    ssize_t ret;
+    struct ioqueue_queue *const queue = &_queues[(int)(unsigned long)tdata];
 
-    queue = &_queues[(int)(unsigned long)tdata];
     req = ioqueue_request_next(queue, 0);
-
     while (req) {
         /* process the request */
         switch (req->op) {
@@ -324,7 +309,7 @@ ioqueue_reap(unsigned int min)
                 pthread_mutex_lock(&_reap_lock);
 
             } else if (r == -1 && errno == EAGAIN) {
-                /* there is at least on request queued, so wait will not deadlock */
+                /* there is at least one request queued, so wait will not deadlock */
                 flag_wait = 1;
             }
         }
