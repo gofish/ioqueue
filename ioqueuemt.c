@@ -155,11 +155,16 @@ static void
 ioqueue_stop_wait()
 {
     int i;
+    /* flip the switch */
     _running = 0;
+    /* signal any waiting threads */
     for (i = 0; i < _nqueue; ++i) {
         pthread_mutex_lock(&_queues[i].lock);
         pthread_cond_signal(&_queues[i].cond);
         pthread_mutex_unlock(&_queues[i].lock);
+    }
+    /* wait and cleanup */
+    for (i = 0; i < _nqueue; ++i) {
         pthread_join(_queues[i].thread, NULL);
         free(_queues[i].reqs);
     }
