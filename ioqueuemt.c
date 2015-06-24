@@ -30,6 +30,7 @@ struct ioqueue_queue {
     unsigned short head;       /* the first request in the queue */
     unsigned short done;       /* the number of requests that have been completed */
     unsigned short size;       /* the total number of requests on the queue */
+    unsigned short wait;       /* the thread needs a signal when reaped */
 };
 
 static unsigned int _depth;
@@ -48,14 +49,7 @@ ioqueue_request_push(struct ioqueue_queue *queue, const struct ioqueue_request *
 
     if (queue->size < _depth) {
         /* there is space on the queue - append to the tail */
-        queue->reqs[(queue->head + queue->size) % _depth] = *req;
-        if (queue->size == queue->done || !queue->size) {
-            /* queue was empty, thread may be sleeping so signal */
-            ++queue->size;
-            pthread_cond_signal(&queue->cond);
-        } else {
-            ++queue->size;
-        }
+        queue->reqs[(queue->head + queue->size++) % _depth] = *req;
         ret = 0;
     } else {
         /* no space on the queue - temporary failure */
@@ -88,6 +82,7 @@ ioqueue_request_next(struct ioqueue_queue *queue, int done)
     /* wait for at least one request on the queue */
     while (!queue->size || queue->done == queue->size) {
         if (!_running) break;
+        queue->wait = 1;
         pthread_cond_wait(&queue->cond, &queue->lock);
     }
     /* return the next request ready for processing */
@@ -106,6 +101,12 @@ ioqueue_request_take(struct ioqueue_queue *queue, struct ioqueue_request *req)
 {
     int ret;
     pthread_mutex_lock(&queue->lock);
+
+    /* signal when thread is waiting for ready work */
+    if (queue->wait && queue->size != queue->done) {
+        queue->wait = 0;
+        pthread_cond_signal(&queue->cond);
+    }
 
     /* pop request from the queue */
     if (queue->done) {
