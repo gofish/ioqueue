@@ -157,7 +157,7 @@ int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb_pread 
 }
 
 /* submit as many requests as possible from the front of the queue */
-int ioqueue_submit()
+static int ioqueue_submit()
 {
     int i;
     int ret;
