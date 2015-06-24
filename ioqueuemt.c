@@ -27,14 +27,15 @@ struct ioqueue_queue {
     pthread_mutex_t lock;
     pthread_cond_t cond;
     struct ioqueue_request *reqs;
-    volatile unsigned short head;       /* the first request in the queue */
-    volatile unsigned short done;       /* the number of requests that have been completed */
-    volatile unsigned short size;       /* the total number of requests on the queue */
+    unsigned short head;       /* the first request in the queue */
+    unsigned short done;       /* the number of requests that have been completed */
+    unsigned short size;       /* the total number of requests on the queue */
 };
 
 static unsigned int _depth;
 static unsigned int _nqueue;
-static volatile int _running;
+static int _running;
+
 static struct ioqueue_queue *_queues = NULL;
 static pthread_mutex_t _reap_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t _reap_cond = PTHREAD_COND_INITIALIZER;
