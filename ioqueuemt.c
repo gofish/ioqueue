@@ -185,13 +185,17 @@ ioqueue_threads_start(pthread_attr_t *attr)
     int i;
     int err;
     struct ioqueue_queue *queue;
+    /* flip the switch */
     _running = 1;
+    /* create threads */
     for (i = 0; i < _nqueue; ++i) {
         queue = &_queues[i];
         pthread_mutex_init(&queue->lock, NULL);
         pthread_cond_init(&queue->cond, NULL);
-        queue->head = queue->done = queue->size = 0;
         queue->reqs = malloc(_depth * sizeof(struct ioqueue_request));
+        queue->head = 0;
+        queue->done = 0;
+        queue->size = 0;
         if (queue->reqs == NULL) {
             err = errno;
             break;
@@ -221,7 +225,7 @@ ioqueue_init(unsigned int depth)
     }
     _depth = depth;
     _nqueue = depth;
-    _queues = malloc(_nqueue * sizeof(_queues[0]));
+    _queues = calloc(_nqueue, sizeof(_queues[0]));
     if (!_queues) {
         return -1;
     }
