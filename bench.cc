@@ -186,21 +186,23 @@ ioqueue_bench()
 
     /* queue all the requests */
     for (int i = 0; i < REQUESTS; ) {
-        /* take a buffer and generate a random read request */
-        const pair<int, off_t> req = next_read_request(&rdata);
-        void *const buf = _buffers.back();
-        _buffers.pop_back();
+        while (!_buffers.empty()) {
+            /* take a buffer and generate a random read request */
+            const pair<int, off_t> req = next_read_request(&rdata);
+            void *const buf = _buffers.back();
+            _buffers.pop_back();
 
-        /* enqueue the read request -- non-blocking */
-        ret = ioqueue_pread(req.first, buf, BUFSIZE, req.second, &aio_callback, (void *)timestamp());
-        if (ret == -1) {
-            perror("ioqueue_pread");
-            exit(EXIT_FAILURE);
+            /* enqueue the read request -- non-blocking */
+            ret = ioqueue_pread(req.first, buf, BUFSIZE, req.second, &aio_callback, (void *)timestamp());
+            if (ret == -1) {
+                perror("ioqueue_pread");
+                exit(EXIT_FAILURE);
+            }
+            i++;
         }
-        i++;
 
         /* reap completed requests -- blocking, if no buffers remain */
-        ret = ioqueue_reap(_buffers.empty() ? 1 : 0);
+        ret = ioqueue_reap(1);
         if (ret == -1) {
             perror("ioqueue_reap");
             exit(EXIT_FAILURE);
