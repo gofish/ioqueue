@@ -6,6 +6,7 @@
 
 enum ioqueue_op {
     ioqueue_OP_PREAD,
+    ioqueue_OP_PWRITE,
 };
 
 struct ioqueue_request {
@@ -138,6 +139,10 @@ ioqueue_thread_run(void *tdata)
         switch (req->op) {
         case ioqueue_OP_PREAD:
             req->u.rw.x = pread(req->fd, req->u.rw.buf, req->u.rw.x, req->u.rw.off);
+            break;
+
+        case ioqueue_OP_PWRITE:
+            req->u.rw.x = pwrite(req->fd, req->u.rw.buf, req->u.rw.x, req->u.rw.off);
             break;
 
         default:
@@ -278,6 +283,30 @@ ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *
     return -1;
 }
 
+/* enqueue a pwrite request  */
+int
+ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_arg)
+{
+    int ret;
+    unsigned int tries;
+    struct ioqueue_request req;
+
+    req.op = ioqueue_OP_PWRITE;
+    req.fd = fd;
+    req.cb = (ioqueue_cb) cb;
+    req.cb_arg = cb_arg;
+    req.u.rw.buf = buf;
+    req.u.rw.x = len;
+    req.u.rw.off = offset;
+
+    for (tries = 0; tries < _nqueue; tries ++) {
+        ret = ioqueue_request_push(&_queues[_next_queue], &req);
+        _next_queue = (_next_queue + 1) % _nqueue;
+        if (!ret) return 0;
+    }
+    return -1;
+}
+
 /* submit requests and handle completion events */
 int
 ioqueue_reap(unsigned int min)
@@ -305,6 +334,7 @@ ioqueue_reap(unsigned int min)
                 pthread_mutex_unlock(&_reap_lock);
                 switch (req.op) {
                 case ioqueue_OP_PREAD:
+                case ioqueue_OP_PWRITE:
                     (* (ioqueue_cb) req.cb)(req.cb_arg, req.u.rw.x, req.u.rw.buf);
                     break;
                 default:

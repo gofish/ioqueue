@@ -17,6 +17,9 @@ int  ioqueue_eventfd();
 /* enqueue a pread request  */
 int  ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_arg);
 
+/* enqueue a pwrite request  */
+int  ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_arg);
+
 /* submit requests and handle completion events */
 int  ioqueue_reap(unsigned int min);
 

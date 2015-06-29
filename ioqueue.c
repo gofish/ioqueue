@@ -156,6 +156,31 @@ int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, vo
     return 0;
 }
 
+/* enqueue a pwrite request  */
+int ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_data)
+{
+    struct ioqueue_request *req;
+    if (fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
+    req = ioqueue_request_alloc();
+    if (req == NULL) return -1;
+
+    req->cb = (ioqueue_cb) cb;
+    req->cb_data = cb_data;
+    IOCB_OP(&req->iocb) = IOCB_CMD_PWRITE;
+    IOCB_FD(&req->iocb) = fd;
+    IOCB_BUF(&req->iocb) = buf;
+    IOCB_LEN(&req->iocb) = len;
+    IOCB_OFF(&req->iocb) = offset;
+    if (_eventfd != -1) {
+        IOCB_FLAGS(&req->iocb) |= IOCB_FLAG_RESFD;
+        IOCB_RESFD(&req->iocb) = _eventfd;
+    }
+    return 0;
+}
+
 /* submit as many requests as possible from the front of the queue */
 static int ioqueue_submit()
 {
@@ -204,6 +229,7 @@ int ioqueue_reap(unsigned int min)
         /* run callback */
         switch (IOCB_OP(&req->iocb)) {
         case IOCB_CMD_PREAD:
+        case IOCB_CMD_PWRITE:
             (* (ioqueue_cb) req->cb)(req->cb_data, _io_evs[i].res, IOCB_BUF(&req->iocb));
             break;
         default:
