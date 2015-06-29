@@ -6,8 +6,7 @@
 extern "C" {
 #endif
 
-typedef void (*ioqueue_cb)(void *arg, ssize_t res);
-typedef void (*ioqueue_cb_pread)(void *arg, ssize_t res, void *buf);
+typedef void (*ioqueue_cb)(void *arg, ssize_t res, void *buf);
 
 /* initialize the io queue to the given maximum outstanding requests */
 int  ioqueue_init(unsigned int depth);
@@ -16,7 +15,7 @@ int  ioqueue_init(unsigned int depth);
 int  ioqueue_eventfd();
 
 /* enqueue a pread request  */
-int  ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb_pread cb, void *cb_arg);
+int  ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_arg);
 
 /* submit requests and handle completion events */
 int  ioqueue_reap(unsigned int min);

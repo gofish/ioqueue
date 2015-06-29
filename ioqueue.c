@@ -132,7 +132,7 @@ static void ioqueue_request_free(struct ioqueue_request *req)
 }
 
 /* enqueue a pread request  */
-int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb_pread cb, void *cb_data)
+int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_data)
 {
     struct ioqueue_request *req;
     if (fd < 0) {
@@ -204,7 +204,7 @@ int ioqueue_reap(unsigned int min)
         /* run callback */
         switch (IOCB_OP(&req->iocb)) {
         case IOCB_CMD_PREAD:
-            (* (ioqueue_cb_pread) req->cb)(req->cb_data, _io_evs[i].res, IOCB_BUF(&req->iocb));
+            (* (ioqueue_cb) req->cb)(req->cb_data, _io_evs[i].res, IOCB_BUF(&req->iocb));
             break;
         default:
             /* unreachable */

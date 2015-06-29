@@ -256,7 +256,7 @@ static unsigned int _next_queue = 0;
 
 /* enqueue a pread request  */
 int
-ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb_pread cb, void *cb_arg)
+ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_arg)
 {
     int ret;
     unsigned int tries;
@@ -305,7 +305,7 @@ ioqueue_reap(unsigned int min)
                 pthread_mutex_unlock(&_reap_lock);
                 switch (req.op) {
                 case ioqueue_OP_PREAD:
-                    (* (ioqueue_cb_pread) req.cb)(req.cb_arg, req.u.rw.x, req.u.rw.buf);
+                    (* (ioqueue_cb) req.cb)(req.cb_arg, req.u.rw.x, req.u.rw.buf);
                     break;
                 default:
                     /* unreachable */
