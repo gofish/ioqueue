@@ -229,6 +229,7 @@ ioqueue_init(unsigned int depth)
     err = pthread_attr_init(&attr);
     if (err) {
         free(_queues);
+        _queues = NULL;
         errno = err;
         return -1;
     }
@@ -236,6 +237,7 @@ ioqueue_init(unsigned int depth)
     if (err) {
         pthread_attr_destroy(&attr);
         free(_queues);
+        _queues = NULL;
         errno = err;
         return -1;
     }
@@ -243,6 +245,7 @@ ioqueue_init(unsigned int depth)
     pthread_attr_destroy(&attr);
     if (err) {
         free(_queues);
+        _queues = NULL;
         errno = err;
         return -1;
     }
@@ -368,4 +371,5 @@ ioqueue_destroy()
     while (ioqueue_reap(1)) { }
     ioqueue_stop_wait();
     free(_queues);
+    _queues = NULL;
 }

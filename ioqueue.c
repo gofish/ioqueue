@@ -69,6 +69,10 @@ static int _eventfd;    /* eventfd(2) for poll/epoll */
 int ioqueue_init(unsigned int depth)
 {
     int ret;
+    if (_ctx != 0) {
+        errno = EINVAL;
+        return -1;
+    }
     _io_reqs = malloc(depth * sizeof(struct iocb *));
     if (_io_reqs == NULL) {
         return -1;
@@ -258,4 +262,5 @@ void ioqueue_destroy()
     }
     free(_io_reqs);
     io_destroy(_ctx);
+    _ctx = 0;
 }
