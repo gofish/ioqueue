@@ -335,7 +335,7 @@ $(DEPS_CPP_O): %$(OBJ_EXT): %$(CPP_EXT)
 #
 %$(BIN_EXT): %$(OBJ_EXT)
 	$(call announce,BIN $@)
-	$(CXX) $(LDFLAGS) $(LDFLAGS_$(dir $@)) -o $@ $(filter %$(OBJ_EXT),$^) $(filter %$(AR_EXT),$^) $(LDLIBS_$(dir $@)) $(LDLIBS)
+	$(CXX) $(LDFLAGS) $(LDFLAGS_$(dir $@)) -o $@ $(filter %$(OBJ_EXT),$^) $(filter %$(AR_EXT),$^) $(filter %$(LIB_EXT),$^) $(LDLIBS_$(dir $@)) $(LDLIBS)
 %$(LIB_EXT):
 	$(call announce,LIB $@)
 	$(CC) -shared $(LDFLAGS) $(LDFLAGS_$(dir $@)) -o $@ $^ $(LDLIBS_$(dir $@)) $(LDLIBS)
