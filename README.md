@@ -69,11 +69,9 @@ API
 Development Notes
 ----
 
-The library only supports read operations for the moment. A matching write API, via `ioqueue_write()`, is planned for development.
-
 The included benchmark is the best usage example. The [`ioqueue_bench()`](http://www.procself.net/pub/scm/?p=ioqueue.git;a=blob;f=bench.cc;h=83cceb4440b5b9e211d5ae459767cd38cd52507e;hb=HEAD#l169) function contains the ioqueue API calls.
 
-The benchmark generates `REQUEST` read requests of size `BUFSIZE` each with a random offset aligned to `BUFSIZE`. Each request is queued, using `ioqueue_pread()`, which takes a file descriptor, an output buffer, a buffer length, the file offset, and a callback. The file descriptor must be open for reading with flag `O_DIRECT` and the callback will be executed asynchronously on the current thread at some point when it called via `ioqueue_reap`.
+The benchmark generates `REQUEST` read requests of size `BUFSIZE` each with a random offset aligned to `BUFSIZE`. Each request is queued, using `ioqueue_pread()`, which takes a file descriptor, an output buffer, a buffer length, the file offset, and a callback. The file descriptor must be open for reading with flag `O_DIRECT` and the callback will be executed asynchronously on the current thread during some call to `ioqueue_reap`.
 
 The function `ioqueue_reap()` checks the queue for completed requests and executes their callback functions, returning the number of requests processed, which may be 0, or -1 on error. A non-zero `min` parameter, if specified, will cause the function to block until `min` requests have completed (KAIO), or at least 1 request has completed (Pthreads).
 
