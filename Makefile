@@ -145,6 +145,9 @@ endif
 define announce
 $(info $(indent)$(tab)$(subst $(VPATH),,$1))
 endef
+define announce_raw
+$(info $(indent)$(tab)$(1))
+endef
 
 # A procedure to reverse a list
 #
@@ -373,6 +376,7 @@ test(%): %
 	$%
 
 coverage: test $(SRCS:=.gcov)
+	$(call announce_raw,COV file://$(abspath index.html))
 	$(LCOV) -c -b $(VPATH) -d . -o lcov.out --no-external > lcov.log
 	$(GENHTML) lcov.out >genhtml.log
 
