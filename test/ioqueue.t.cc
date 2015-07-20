@@ -45,6 +45,9 @@ TEST(TEST_NAME(InitTest), InitTest) {
 static const int BUFSIZE = 4096;
 
 class TEST_NAME(TestClass) : public ::testing::Test {
+  public:
+    static const int DEPTH = 32;
+
   protected:
     virtual void SetUp() {
         // initialize an aligned memory buffer
@@ -52,7 +55,7 @@ class TEST_NAME(TestClass) : public ::testing::Test {
         memset(buf_, 0, BUFSIZE);
         res_ = 0;
         // initialize the ioqueue library
-        ASSERT_EQ(0, ioqueue_init(32)) << "ioqueue_init: " << strerror(errno);
+        ASSERT_EQ(0, ioqueue_init(DEPTH)) << "ioqueue_init: " << strerror(errno);
         // create and open a temporary test file
         strcpy(path_, P_tmpdir "/ioqueue.tmp.XXXXXX");
         fd_ = mkstemp(path_);
@@ -128,4 +131,12 @@ TEST_F(TEST_NAME(TestClass), ReapOnDestroyTest)
     ASSERT_EQ(0, ioqueue_pwrite(fd_, buf_, BUFSIZE, 0, &Callback, this));
     TearDown();
     ASSERT_EQ(res_, BUFSIZE);
+}
+
+TEST_F(TEST_NAME(TestClass), FullQueueTest)
+{
+    for (int i = 0; i < DEPTH; i++) {
+        ASSERT_EQ(0, ioqueue_pread(fd_, buf_, BUFSIZE, 0, &Callback, this));
+    }
+    ASSERT_EQ(-1, ioqueue_pread(fd_, buf_, BUFSIZE, 0, &Callback, this));
 }
