@@ -7,6 +7,14 @@
 #include <gtest/gtest.h>
 #include "../ioqueue.h"
 
+#ifndef HAVE_KAIO
+#define HAVE_KAIO 1
+#endif
+
+#ifndef HAVE_EVENTFD
+#define HAVE_EVENTFD 1
+#endif
+
 TEST(IOQueueInitTest, InitTest) {
     int ret;
     EXPECT_EQ(-1, (ret = ioqueue_init(0))) << "ioqueue_init: " << strerror(errno);
@@ -20,6 +28,14 @@ TEST(IOQueueInitTest, InitTest) {
             ioqueue_destroy();
         }
     }
+    ASSERT_EQ(0, (ret = ioqueue_init(1))) << "ioqueue_init: " << strerror(errno);
+    EXPECT_EQ(-1, (ret = ioqueue_init(1))) << "ioqueue_init: " << strerror(errno);
+#if HAVE_EVENTFD
+    EXPECT_NE(-1, ioqueue_eventfd());
+#else
+    EXPECT_EQ(-1, ioqueue_eventfd());
+#endif
+    ioqueue_destroy();
 }
 
 static const int BUFSIZE = 4096;
@@ -27,12 +43,12 @@ static const int BUFSIZE = 4096;
 class IOQueueTest : public ::testing::Test {
   protected:
     virtual void SetUp() {
-        // initialize the ioqueue library
-        ioqueue_init(32);
         // initialize an aligned memory buffer
         ASSERT_EQ(0, posix_memalign((void **)&buf_, 512, BUFSIZE)) << "posix_memalign: " << strerror(errno);
         memset(buf_, 0, BUFSIZE);
         res_ = 0;
+        // initialize the ioqueue library
+        ASSERT_EQ(0, ioqueue_init(32)) << "ioqueue_init: " << strerror(errno);
         // create and open a temporary test file
         strcpy(path_, P_tmpdir "/ioqueue.tmp.XXXXXX");
         fd_ = mkstemp(path_);
@@ -44,9 +60,12 @@ class IOQueueTest : public ::testing::Test {
     }
 
     virtual void TearDown() {
-        ioqueue_destroy();
-        close(fd_);
-        free(buf_);
+        if (buf_) {
+            ioqueue_destroy();
+            close(fd_);
+            free(buf_);
+        }
+        buf_ = NULL;
     }
 
     static void Callback(void *arg, ssize_t res, void *buf) {
@@ -89,4 +108,25 @@ TEST_F(IOQueueTest, WriteTest) {
     memset(buf_, 0, BUFSIZE);
     ASSERT_EQ(BUFSIZE, pread(fd_, buf_, BUFSIZE, 0));
     ASSERT_EQ(1, buf_[250]);
+}
+
+#if HAVE_KAIO
+TEST_F(IOQueueTest, BadReapTest)
+#else
+// TODO: add check to mt ioqueue_reap()
+TEST_F(IOQueueTest, DISABLED_BadReapTest)
+#endif
+{
+    ASSERT_EQ(-1, ioqueue_reap(0));
+    ASSERT_EQ(-1, ioqueue_reap(1));
+    ASSERT_EQ(0, ioqueue_pwrite(fd_, buf_, BUFSIZE, 0, &Callback, this));
+    ASSERT_EQ(-1, ioqueue_reap(2));
+    ASSERT_EQ(1, ioqueue_reap(1));
+}
+
+TEST_F(IOQueueTest, ReapOnDestroyTest)
+{
+    ASSERT_EQ(0, ioqueue_pwrite(fd_, buf_, BUFSIZE, 0, &Callback, this));
+    TearDown();
+    ASSERT_EQ(res_, BUFSIZE);
 }
