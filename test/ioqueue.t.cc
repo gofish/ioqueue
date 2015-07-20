@@ -7,6 +7,10 @@
 #include <gtest/gtest.h>
 #include "../ioqueue.h"
 
+#ifndef TEST_NAME
+#define TEST_NAME(name) IOQueue ## name
+#endif
+
 #ifndef HAVE_KAIO
 #define HAVE_KAIO 1
 #endif
@@ -15,7 +19,7 @@
 #define HAVE_EVENTFD 1
 #endif
 
-TEST(IOQueueInitTest, InitTest) {
+TEST(TEST_NAME(InitTest), InitTest) {
     int ret;
     EXPECT_EQ(-1, (ret = ioqueue_init(0))) << "ioqueue_init: " << strerror(errno);
     if (ret == 0) {
@@ -40,7 +44,7 @@ TEST(IOQueueInitTest, InitTest) {
 
 static const int BUFSIZE = 4096;
 
-class IOQueueTest : public ::testing::Test {
+class TEST_NAME(TestClass) : public ::testing::Test {
   protected:
     virtual void SetUp() {
         // initialize an aligned memory buffer
@@ -69,7 +73,7 @@ class IOQueueTest : public ::testing::Test {
     }
 
     static void Callback(void *arg, ssize_t res, void *buf) {
-        ((IOQueueTest *) arg)->res_ = res;
+        ((TEST_NAME(TestClass) *) arg)->res_ = res;
     }
 
     int fd_;
@@ -78,7 +82,7 @@ class IOQueueTest : public ::testing::Test {
     int res_;
 };
 
-TEST_F(IOQueueTest, ReadTest) {
+TEST_F(TEST_NAME(TestClass), ReadTest) {
     buf_[512] = 1;
     ASSERT_EQ(BUFSIZE, pwrite(fd_, buf_, BUFSIZE, 0)) << "pwrite: " << strerror(errno);
 
@@ -98,7 +102,7 @@ TEST_F(IOQueueTest, ReadTest) {
     ASSERT_EQ(0, memcmp(buf_ + 1, buf_ + 1024, 511));
 }
 
-TEST_F(IOQueueTest, WriteTest) {
+TEST_F(TEST_NAME(TestClass), WriteTest) {
     res_ = 0;
     buf_[250] = 1;
     ASSERT_EQ(0, ioqueue_pwrite(fd_, buf_, BUFSIZE, 0, &Callback, this));
@@ -110,16 +114,16 @@ TEST_F(IOQueueTest, WriteTest) {
     ASSERT_EQ(1, buf_[250]);
 }
 
-TEST_F(IOQueueTest, BadReapTest)
+TEST_F(TEST_NAME(TestClass), BadReapTest)
 {
     ASSERT_EQ(-1, ioqueue_reap(0));
     ASSERT_EQ(-1, ioqueue_reap(1));
-    ASSERT_EQ(0, ioqueue_pwrite(fd_, buf_, BUFSIZE, 0, &Callback, this));
+    ASSERT_EQ(0, ioqueue_pread(fd_, buf_, BUFSIZE, 0, &Callback, this));
     ASSERT_EQ(-1, ioqueue_reap(2));
     ASSERT_EQ(1, ioqueue_reap(1));
 }
 
-TEST_F(IOQueueTest, ReapOnDestroyTest)
+TEST_F(TEST_NAME(TestClass), ReapOnDestroyTest)
 {
     ASSERT_EQ(0, ioqueue_pwrite(fd_, buf_, BUFSIZE, 0, &Callback, this));
     TearDown();
