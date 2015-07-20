@@ -76,13 +76,20 @@ class TEST_NAME(TestClass) : public ::testing::Test {
     }
 
     static void Callback(void *arg, ssize_t res, void *buf) {
-        ((TEST_NAME(TestClass) *) arg)->res_ = res;
+        TEST_NAME(TestClass) *const self = (TEST_NAME(TestClass) *) arg;
+        self->res_ = res;
+        if (res < 0) {
+            self->err_ = errno;
+        } else {
+            self->err_ = 0;
+        }
     }
 
     int fd_;
     char path_[256];
     char *buf_;
     int res_;
+    int err_;
 };
 
 TEST_F(TEST_NAME(TestClass), ReadTest) {
@@ -139,4 +146,14 @@ TEST_F(TEST_NAME(TestClass), FullQueueTest)
         ASSERT_EQ(0, ioqueue_pread(fd_, buf_, BUFSIZE, 0, &Callback, this));
     }
     ASSERT_EQ(-1, ioqueue_pread(fd_, buf_, BUFSIZE, 0, &Callback, this));
+}
+
+TEST_F(TEST_NAME(TestClass), DISABLED_BadFileReadTest)
+{
+    // TODO: fix ioqueue_submit() handling of EBADF on io_submit()
+    ASSERT_EQ(0, ioqueue_pread(-1, buf_, 512, 512, &Callback, this));
+    ASSERT_EQ(1, ioqueue_reap(1));
+    ASSERT_EQ(-1, res_);
+    // TODO: record errno in ioqueue_thread_run()
+    ASSERT_EQ(EBADF, err_);
 }
