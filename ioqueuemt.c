@@ -111,16 +111,15 @@ ioqueue_request_take(struct ioqueue_queue *queue, struct ioqueue_request *req)
 
     /* pop request from the queue */
     if (queue->done) {
-        ret = 1;
+        ret = 0;
         *req = queue->reqs[queue->head];
         queue->head = (queue->head + 1) % _depth;
         --queue->done;
         --queue->size;
     } else if (queue->size) {
-        ret = -1;
-        errno = EAGAIN;
+        ret = queue->size;
     } else {
-        ret = 0;
+        ret = -1;
     }
 
     pthread_mutex_unlock(&queue->lock);
@@ -315,50 +314,49 @@ int
 ioqueue_reap(unsigned int min)
 {
     int r;
-    int flag_wait;
-    int flag_loop;
-    unsigned int i, j, n;
+    unsigned int i, j, m, n;
     struct ioqueue_request req;
 
     pthread_mutex_lock(&_reap_lock);
 
     n = 0;
-    flag_wait = 0;
     do {
-        flag_loop = 0;
+        m = n;
         for (i = 0, j = 0; i < _nqueue; i++) {
-            r = ioqueue_request_take(&_queues[i], &req);
-            if (r == 1) {
-                /* we took a request */
-                ++n; /* count the request so we will not wait later */
-                flag_loop = 1; /* try to take another */
+            do {
+                r = ioqueue_request_take(&_queues[i], &req);
+                if (r == 0) {
+                    /* count the request */
+                    ++m; /* we saw a request */
+                    ++n; /* we took a request */
 
-                /* release lock and perform callback */
-                pthread_mutex_unlock(&_reap_lock);
-                switch (req.op) {
-                case ioqueue_OP_PREAD:
-                case ioqueue_OP_PWRITE:
-                    (* (ioqueue_cb) req.cb)(req.cb_arg, req.u.rw.x, req.u.rw.buf);
-                    break;
-                default:
-                    /* unreachable */
-                    abort();
+                    /* release lock and perform callback */
+                    pthread_mutex_unlock(&_reap_lock);
+                    switch (req.op) {
+                    case ioqueue_OP_PREAD:
+                    case ioqueue_OP_PWRITE:
+                        (* (ioqueue_cb) req.cb)(req.cb_arg, req.u.rw.x, req.u.rw.buf);
+                        break;
+                    default:
+                        /* unreachable */
+                        abort();
+                    }
+                    /* reacquire reap lock */
+                    pthread_mutex_lock(&_reap_lock);
+                } else if (r > 0) {
+                    m += r; /* we saw `r` requests on the queue */
                 }
-                /* reacquire reap lock */
-                pthread_mutex_lock(&_reap_lock);
-
-            } else if (r == -1 && errno == EAGAIN) {
-                /* there is at least one request queued, so wait will not deadlock */
-                flag_wait = 1;
-            }
+            } while (r == 0); /* try to take another */
         }
-        if (!n && flag_wait && min) {
-            /* there is at least one request enqueued */
-            /* since we have reaped no requests, wait for it */
+        if (!m || m < min) {
+            /* there were less requests queued than requested */
+            n = -1;
+            errno = EINVAL;
+        } else if (n < min && n < m) {
+            /* there is at least one more request enqueued, wait for it */
             pthread_cond_wait(&_reap_cond, &_reap_lock);
-            flag_loop = 1;
         }
-    } while (flag_loop);
+    } while (n < min && n < m);
 
     pthread_mutex_unlock(&_reap_lock);
     return n;
@@ -368,7 +366,7 @@ ioqueue_reap(unsigned int min)
 void
 ioqueue_destroy()
 {
-    while (ioqueue_reap(1)) { }
+    while (ioqueue_reap(1) > 0) { }
     ioqueue_stop_wait();
     free(_queues);
     _queues = NULL;

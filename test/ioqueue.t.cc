@@ -110,12 +110,7 @@ TEST_F(IOQueueTest, WriteTest) {
     ASSERT_EQ(1, buf_[250]);
 }
 
-#if HAVE_KAIO
 TEST_F(IOQueueTest, BadReapTest)
-#else
-// TODO: add check to mt ioqueue_reap()
-TEST_F(IOQueueTest, DISABLED_BadReapTest)
-#endif
 {
     ASSERT_EQ(-1, ioqueue_reap(0));
     ASSERT_EQ(-1, ioqueue_reap(1));
