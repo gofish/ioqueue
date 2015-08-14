@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include "ioqueue.h"
 
+/* NOTE: scales queue size but not depth/parallelism */
+#ifndef IOQUEUEMT_BACKLOG
+#define IOQUEUEMT_BACKLOG 1     /* the # of queued requests permitted per thread */
+#endif
+
 enum ioqueue_op {
     ioqueue_OP_PREAD,
     ioqueue_OP_PWRITE,
@@ -34,7 +39,7 @@ struct ioqueue_queue {
     unsigned short wait;       /* the thread needs a signal when reaped */
 };
 
-static unsigned int _depth;
+static unsigned int _backlog;
 static unsigned int _nqueue;
 static int _running;
 
@@ -48,9 +53,9 @@ ioqueue_request_push(struct ioqueue_queue *queue, const struct ioqueue_request *
     int ret;
     pthread_mutex_lock(&queue->lock);
 
-    if (queue->size < _depth) {
+    if (queue->size < _backlog) {
         /* there is space on the queue - append to the tail */
-        queue->reqs[(queue->head + queue->size++) % _depth] = *req;
+        queue->reqs[(queue->head + queue->size++) % _backlog] = *req;
         ret = 0;
     } else {
         /* no space on the queue - temporary failure */
@@ -88,7 +93,7 @@ ioqueue_request_next(struct ioqueue_queue *queue, int done)
     }
     /* return the next request ready for processing */
     if (_running) {
-        req = &queue->reqs[(queue->head + queue->done) % _depth];
+        req = &queue->reqs[(queue->head + queue->done) % _backlog];
     } else {
         req = NULL;
     }
@@ -113,7 +118,7 @@ ioqueue_request_take(struct ioqueue_queue *queue, struct ioqueue_request *req)
     if (queue->done) {
         ret = 0;
         *req = queue->reqs[queue->head];
-        queue->head = (queue->head + 1) % _depth;
+        queue->head = (queue->head + 1) % _backlog;
         --queue->done;
         --queue->size;
     } else if (queue->size) {
@@ -188,7 +193,7 @@ ioqueue_threads_start(pthread_attr_t *attr)
         queue = &_queues[i];
         pthread_mutex_init(&queue->lock, NULL);
         pthread_cond_init(&queue->cond, NULL);
-        queue->reqs = malloc(_depth * sizeof(struct ioqueue_request));
+        queue->reqs = malloc(_backlog * sizeof(struct ioqueue_request));
         queue->head = 0;
         queue->done = 0;
         queue->size = 0;
@@ -219,7 +224,7 @@ ioqueue_init(unsigned int depth)
         errno = EINVAL;
         return -1;
     }
-    _depth = depth;
+    _backlog = IOQUEUEMT_BACKLOG;
     _nqueue = depth;
     _queues = calloc(_nqueue, sizeof(_queues[0]));
     if (!_queues) {
