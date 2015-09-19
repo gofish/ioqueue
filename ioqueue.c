@@ -138,12 +138,7 @@ static void ioqueue_request_free(struct ioqueue_request *req)
 /* enqueue a pread request  */
 int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_data)
 {
-    struct ioqueue_request *req;
-    if (fd < 0) {
-        errno = EBADF;
-        return -1;
-    }
-    req = ioqueue_request_alloc();
+    struct ioqueue_request *const req = ioqueue_request_alloc();
     if (req == NULL) return -1;
 
     req->cb = (ioqueue_cb) cb;
@@ -163,12 +158,7 @@ int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, vo
 /* enqueue a pwrite request  */
 int ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_data)
 {
-    struct ioqueue_request *req;
-    if (fd < 0) {
-        errno = EBADF;
-        return -1;
-    }
-    req = ioqueue_request_alloc();
+    struct ioqueue_request *const req = ioqueue_request_alloc();
     if (req == NULL) return -1;
 
     req->cb = (ioqueue_cb) cb;
