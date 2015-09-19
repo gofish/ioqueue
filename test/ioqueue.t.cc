@@ -54,6 +54,7 @@ class TEST_NAME(TestClass) : public ::testing::Test {
         ASSERT_EQ(0, posix_memalign((void **)&buf_, 512, BUFSIZE)) << "posix_memalign: " << strerror(errno);
         memset(buf_, 0, BUFSIZE);
         res_ = 0;
+        err_ = 0;
         // initialize the ioqueue library
         ASSERT_EQ(0, ioqueue_init(DEPTH)) << "ioqueue_init: " << strerror(errno);
         // create and open a temporary test file
@@ -148,12 +149,13 @@ TEST_F(TEST_NAME(TestClass), FullQueueTest)
     ASSERT_EQ(-1, ioqueue_pread(fd_, buf_, BUFSIZE, 0, &Callback, this));
 }
 
-TEST_F(TEST_NAME(TestClass), DISABLED_BadFileReadTest)
+TEST_F(TEST_NAME(TestClass), BadFileReadTest)
 {
+#if HAVE_KAIO
     // TODO: fix ioqueue_submit() handling of EBADF on io_submit()
-    ASSERT_EQ(0, ioqueue_pread(-1, buf_, 512, 512, &Callback, this));
+    ASSERT_EQ(0, ioqueue_pread(-1, buf_, 512, 0, &Callback, this));
     ASSERT_EQ(1, ioqueue_reap(1));
     ASSERT_EQ(-1, res_);
-    // TODO: record errno in ioqueue_thread_run()
     ASSERT_EQ(EBADF, err_);
+#endif
 }
