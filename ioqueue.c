@@ -197,28 +197,42 @@ int ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, v
 }
 
 /* submit as many requests as possible from the front of the queue */
-static int ioqueue_submit()
+static int ioqueue_submit(int *nerr)
 {
+    int n;
     int i;
     int ret;
+    n = 0;
     for (i = 0; i < _nwait; i += ret) {
         ret = io_submit(_ctx, _nwait - i, _io_reqs + i);
         if (ret < 0) {
-            /* ensure wait-queue occupies the head of the array */
-            memmove(_io_reqs, _io_reqs + i, _nwait - i);
-            _nwait -= i;
-            errno = -ret;
-            return -1;
+            if (-ret == EBADF) {
+                /* head of the queue is bad, finish the request and continue */
+                ioqueue_request_finish(IOCB_DATA(_io_reqs[i]), -1, EBADF);
+                ret = 1;
+            } else {
+                /* ensure wait-queue occupies the head of the array */
+                memmove(_io_reqs, _io_reqs + i, _nwait - i);
+                _nwait -= i;
+                errno = -ret;
+                return -1;
+            }
+        } else {
+            /* count the submitted requests (excludes EBADF above) */
+            n += ret;
         }
     }
     _nwait -= i;
-    return i;
+    if (nerr) {
+        *nerr = i - n;
+    }
+    return n;
 }
 
 /* fetch and process any completed requests */
 int ioqueue_reap(unsigned int min)
 {
-    int ret, i;
+    int ret, i, nerr;
     struct ioqueue_request *req;
 
     /* cannot wait for more requests than have been submitted */
@@ -227,9 +241,14 @@ int ioqueue_reap(unsigned int min)
         return -1;
     }
 
-    /* ensure some requests have been submitted */
-    ret = ioqueue_submit();
+    /* ensure the requests have been submitted */
+    ret = ioqueue_submit(&nerr);
     if (ret == -1) return ret;
+
+    /* re-adjust minimum to account for EBADF-finished requests */
+    if (nerr) {
+        min -= nerr;
+    }
 
     /* block for at least 'min' completion events */
     ret = io_getevents(_ctx, min, _depth, _io_evs, NULL);
@@ -240,7 +259,7 @@ int ioqueue_reap(unsigned int min)
         ioqueue_request_finish(IOEV_DATA(&_io_evs[i]), _io_evs[i].res, _io_evs[i].res2);
     }
     /* return the number of completed requests */
-    return ret;
+    return ret + nerr;
 }
 
 void ioqueue_destroy()
