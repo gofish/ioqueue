@@ -151,11 +151,8 @@ TEST_F(TEST_NAME(TestClass), FullQueueTest)
 
 TEST_F(TEST_NAME(TestClass), BadFileReadTest)
 {
-#if HAVE_KAIO
-    // TODO: fix ioqueue_submit() handling of EBADF on io_submit()
     ASSERT_EQ(0, ioqueue_pread(-1, buf_, 512, 0, &Callback, this));
     ASSERT_EQ(1, ioqueue_reap(1));
     ASSERT_EQ(-1, res_);
     ASSERT_EQ(EBADF, err_);
-#endif
 }
