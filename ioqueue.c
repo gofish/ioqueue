@@ -251,8 +251,12 @@ int ioqueue_reap(unsigned int min)
     }
 
     /* block for at least 'min' completion events */
-    ret = io_getevents(_ctx, min, _depth, _io_evs, NULL);
-    if (ret <= 0) return ret;
+    do {
+        ret = io_getevents(_ctx, min, _depth, _io_evs, NULL);
+    } while (ret < 0 && errno == EINTR);
+    if (ret < 0) {
+        return ret;
+    }
 
     /* finish the reaped requests */
     for (i = 0; i < ret; i++) {
