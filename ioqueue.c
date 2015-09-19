@@ -135,6 +135,27 @@ static void ioqueue_request_free(struct ioqueue_request *req)
     _io_reqs[_depth - (++_nfree)] = &req->iocb;
 }
 
+static void
+ioqueue_request_finish(struct ioqueue_request *const req, ssize_t res, int err)
+{
+    if (res < 0) {
+        /* set errno for callback */
+        errno = err;
+    }
+    /* run callback */
+    switch (IOCB_OP(&req->iocb)) {
+    case IOCB_CMD_PREAD:
+    case IOCB_CMD_PWRITE:
+        (* (ioqueue_cb) req->cb)(req->cb_data, res, IOCB_BUF(&req->iocb));
+        break;
+    default:
+        /* unreachable */
+        abort();
+    }
+    /* push free'd request onto tail-stack */
+    ioqueue_request_free(req);
+}
+
 /* enqueue a pread request  */
 int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_data)
 {
@@ -214,24 +235,9 @@ int ioqueue_reap(unsigned int min)
     ret = io_getevents(_ctx, min, _depth, _io_evs, NULL);
     if (ret <= 0) return ret;
 
+    /* finish the reaped requests */
     for (i = 0; i < ret; i++) {
-        req = IOEV_DATA(&_io_evs[i]);
-        if (_io_evs[i].res < 0) {
-            /* set errno for callback */
-            errno = _io_evs[i].res2;
-        }
-        /* run callback */
-        switch (IOCB_OP(&req->iocb)) {
-        case IOCB_CMD_PREAD:
-        case IOCB_CMD_PWRITE:
-            (* (ioqueue_cb) req->cb)(req->cb_data, _io_evs[i].res, IOCB_BUF(&req->iocb));
-            break;
-        default:
-            /* unreachable */
-            abort();
-        }
-        /* push free'd request onto tail-stack */
-        ioqueue_request_free(req);
+        ioqueue_request_finish(IOEV_DATA(&_io_evs[i]), _io_evs[i].res, _io_evs[i].res2);
     }
     /* return the number of completed requests */
     return ret;
