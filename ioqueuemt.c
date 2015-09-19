@@ -153,6 +153,10 @@ ioqueue_thread_run(void *tdata)
             /* unreachable */
             abort();
         }
+        if (req->u.rw.x < 0) {
+            /* save errno */
+            req->u.rw.x = -errno;
+        }
 
         /* pull the next request off the queue */
         req = ioqueue_request_next(queue, 1);
@@ -340,6 +344,11 @@ ioqueue_reap(unsigned int min)
                     switch (req.op) {
                     case ioqueue_OP_PREAD:
                     case ioqueue_OP_PWRITE:
+                        if (req.u.rw.x < 0) {
+                            /* set errno for callback */
+                            errno = -req.u.rw.x;
+                            req.u.rw.x = -1;
+                        }
                         (* (ioqueue_cb) req.cb)(req.cb_arg, req.u.rw.x, req.u.rw.buf);
                         break;
                     default:
