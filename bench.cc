@@ -201,7 +201,7 @@ ioqueue_bench()
             i++;
         }
 
-        /* reap completed requests -- blocking, if no buffers remain */
+        /* reap completed requests -- blocking, as no buffers remain */
         ret = ioqueue_reap(1);
         if (ret == -1) {
             perror("ioqueue_reap");

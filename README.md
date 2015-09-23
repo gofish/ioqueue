@@ -26,7 +26,7 @@ The high random-I/O performance of solid-state drives is a relatively novel deve
 
 One approach to maximize performance of an SSD is to use POSIX threads to execute parallel requests via direct I/O file descriptors. Direct I/O will bypass the kernel buffer cache and execute read and writes directly to the SSD controller. Using threads is necessary, since file I/O is *always* blocking (except, below) and direct I/O will cause a disk read on every call. However, it is also necessary to use many threads in order to saturate the SSD controller, which is backed by several parallel and individually slow NANDs.
 
-The exception to blocking direct I/O on Linux is the kernel [AIO](https://code.google.com/p/kernel/wiki/AIOUserGuide) interface. These syscalls provide user-space a low-level interface to queue, reap, and poll asynchronous direct I/O requests. In writing and benchmarking `ioqueue` for random reads I found that KAIO on average could match or beat the throughput of the Pthread implementation while decreasing overall CPU usage and request latency. Both backends are able to acheive full read performance out of most SSDs.
+The exception to blocking direct I/O on Linux is the kernel [AIO][AIO] interface. These syscalls provide user-space a low-level interface to queue, reap, and poll asynchronous direct I/O requests. In writing and benchmarking `ioqueue` for random reads I found that KAIO on average could match or beat the throughput of the Pthread implementation while decreasing overall CPU usage and request latency. Both backends are able to acheive full read performance out of most SSDs.
 
 Benchmark
 ----
@@ -59,17 +59,17 @@ The Pthread backend here is configured to run with 32 parallel I/O threads.
     pthread 65536   131072  32      17135   442     1057    1499    8363    3824    478.06
     pthread 32768   262144  32      16974   219     856     1076    16566   1930    482.61
 
-These numbers appear to surpass the published [performance specifications](http://www.intel.com/content/www/us/en/solid-state-drives/solid-state-drives-530-series.html) for the drive, which use [Iometer](http://www.iometer.org/) over the same 8GB logical address space and with a queue depth of 32 (# of in-flight requests).
+These numbers appear to surpass the published [performance specifications][intel_perf] for the drive, which use [Iometer][iometer] over the same 8GB logical address space and with a queue depth of 32 (# of in-flight requests). Iometer has not yet been run with these settings on the same drive.
 
 API
 ---
 
-[ioqueue.h](/pub/scm/?p=ioqueue.git;a=blob_plain;f=ioqueue.h)
+[ioqueue.h][ioqueue.h]
 
 Development Notes
 ----
 
-The included benchmark is the best usage example. The [`ioqueue_bench()`](http://www.procself.net/pub/scm/?p=ioqueue.git;a=blob;f=bench.cc;h=83cceb4440b5b9e211d5ae459767cd38cd52507e;hb=HEAD#l169) function contains the ioqueue API calls.
+The included benchmark is the best usage example. The [`ioqueue_bench()`][ioqueue_bench] function contains the ioqueue API calls.
 
 The benchmark generates `REQUEST` read requests of size `BUFSIZE` each with a random offset aligned to `BUFSIZE`. Each request is queued, using `ioqueue_pread()`, which takes a file descriptor, an output buffer, a buffer length, the file offset, and a callback. The file descriptor must be open for reading with flag `O_DIRECT` and the callback will be executed asynchronously on the current thread during some call to `ioqueue_reap`.
 
@@ -80,3 +80,9 @@ In the benchmark, the reap is executed after each pread with a `min` parameter o
 The API is single-threaded and is intended to be used in a single process with no threads, or via a single I/O manager thread. The I/O itself is asynchronous so this main process/thread can do other work while the queue is full and `ioqueue_reap(0)` returns 0. Once the I/O is complete, callback functions are executed on main thread during the next call to `ioqueue_reap()`.
 
 On the KAIO backend, there is support for using `poll()` to detect I/O readiness. The file descriptor returned from `ioqueue_eventfd()` will receive `POLL_IN/OUT/ERR` notifications when individual requests have completed or failed. This is less efficient than directly reaping requests in a data-driven program, but may be useful for e.g. a network server that already processes events on many file descriptors via polling. In this case the server may process other network I/O events as they occurs instead of blocking during `ioqueue_reap()` for the completion of disk I/O.
+
+[AIO]: https://web.archive.org/web/20150406015143/http://code.google.com/p/kernel/wiki/AIOUserGuide
+[intel_perf]: http://www.intel.com/content/www/us/en/solid-state-drives/solid-state-drives-530-series.html
+[iometer]: http://www.iometer.org/
+[ioqueue.h]: http://www.procself.net/pub/scm/?p=ioqueue.git;a=blob_plain;f=ioqueue.h
+[ioqueue_bench]: http://www.procself.net/pub/scm/?p=ioqueue.git;a=blob;f=bench.cc;hb=HEAD#l169
