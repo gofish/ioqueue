@@ -16,7 +16,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "ioqueue.h"
+#include "../ioqueue.h"
 
 #ifndef RANDSTATE
 #define RANDSTATE 64
