@@ -149,12 +149,6 @@ define announce_raw
 $(info $(indent)$(tab)$(1))
 endef
 
-# A procedure to reverse a list
-#
-define reverse
-$(if $(1),$(call reverse,$(wordlist 2,$(words $(1)),$(1)))) $(firstword $(1))
-endef
-
 # A procedure for declaring dependencies
 #
 # Usage: $(call depends,foo,foo.o)
@@ -239,10 +233,10 @@ endef
 ### Project build rules
 #
 
-# Find all Rules.mk files under the source directory in depth-last order
-RULES := $(shell cd $(VPATH) && find . -depth \! -path '* *' -a -name Rules.mk 2>/dev/null)
-RULES := $(patsubst ./%,%,$(RULES))
-RULES := $(call reverse,$(RULES))
+# Find all Rules.mk files under the source directory in breadth-first order
+RULES := $(shell cd $(VPATH) && \
+                find . -name Rules.mk -printf '%d\t%P\n' 2>/dev/null | \
+                sort -n | cut -f2-)
 
 # Include the subdirectory rules
 $(foreach path,$(RULES),$(eval $(call include_rules,$(path))))
