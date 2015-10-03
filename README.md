@@ -84,5 +84,5 @@ On the KAIO backend, there is support for using `poll()` to detect I/O readiness
 [AIO]: https://web.archive.org/web/20150406015143/http://code.google.com/p/kernel/wiki/AIOUserGuide
 [intel_perf]: http://www.intel.com/content/www/us/en/solid-state-drives/solid-state-drives-530-series.html
 [iometer]: http://www.iometer.org/
-[ioqueue.h]: http://www.procself.net/pub/scm/?p=ioqueue.git;a=blob_plain;f=ioqueue.h
-[ioqueue_bench]: http://www.procself.net/pub/scm/?p=ioqueue.git;a=blob;f=perf/bench.cc;hb=HEAD#l169
+[ioqueue.h]: blob/master/ioqueue.h
+[ioqueue_bench]: blob/master/perf/bench.cc#L170
