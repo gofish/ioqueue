@@ -1,5 +1,31 @@
 #!/usr/bin/make
 
+# Copyright (c) 2015, Jeremy R. Fishman
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#     * Neither the name of the <organization> nor the
+#       names of its contributors may be used to endorse or promote products
+#       derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
 ### Main build target
 #
 .PHONY: all
@@ -31,25 +57,26 @@ endif
 # Override this to change the source root directory
 export VPATH ?= $(CURDIR)/
 
-### Run the clean rule directly
-#
-clean:
-	$(RM) -r build
-
 ### Additional build types and overrides
 #
 -include Overrides.mk
 
+### Run the clean rule directly
+#
+.PHONY: clean
+clean:
+	$(RM) -r build
+
 ### Force execution of all rules
 #
-%::     force
 .PHONY: force
+%::     force
 
 ### Prevent implicit rules from remaking the Makefiles
 #
 MAKEFILE       := $(firstword $(MAKEFILE_LIST))
-$(MAKEFILE): ;
-Overrides.mk: ;
+$(MAKEFILE):    ;
+Overrides.mk:   ;
 
 ### Delegate release goals to a sub-make and override BUILD_TYPE
 #
@@ -155,10 +182,18 @@ endef
 # Usage: $(call depends,bar bar.a,bar.o foo.o)
 #
 define depends
-$(addprefix $(SUBDIR),$1): $(addprefix $(SUBDIR),$2)
+$(addprefix $(SUBDIR),$1): $(shell realpath -m --relative-base=. $(addprefix $(SUBDIR),$2))
 endef
 define depends_ext
 $(addprefix $(SUBDIR),$1): $2
+endef
+
+# A procedure for declaring relative build flags
+#
+# Usage: $(call flags,path/to/foo/,CFLAGS,-g)
+#
+define flags
+$(eval $2_$(patsubst ./%,%,$(SUBDIR))$1 += $3)
 endef
 
 # A procedure for installing source files to build locations
@@ -188,6 +223,10 @@ define save
 SAVED_$1 := $($1)
 $1 :=
 endef
+define save_from_var
+SAVED_$1 := $($1)
+$1 := $($1_$(SUBDIR))
+endef
 define restore
 $1 := $(SAVED_$1)
 endef
@@ -210,14 +249,14 @@ endef
 define include_rules
 # save variables
 $(eval $(call save,SUBDIR))
+$(eval SUBDIR := $(dir $1))
 $(eval $(call save,SRCS))
 $(eval $(call save,TGTS))
-$(eval $(call save,CFLAGS))
-$(eval $(call save,CXXFLAGS))
-$(eval $(call save,LDFLAGS))
-$(eval $(call save,LDLIBS))
+$(eval $(call save_from_var,CFLAGS))
+$(eval $(call save_from_var,CXXFLAGS))
+$(eval $(call save_from_var,LDFLAGS))
+$(eval $(call save_from_var,LDLIBS))
 # include subdirectory rules
-$(eval SUBDIR := $(dir $1))
 $(eval $(call announce,MK  $1))
 $(eval include $1)
 # process and restore variable
@@ -235,7 +274,7 @@ endef
 
 # Find all Rules.mk files under the source directory in breadth-first order
 RULES := $(shell cd $(VPATH) && \
-                find . -name Rules.mk -printf '%d\t%P\n' 2>/dev/null | \
+                find -L . -name Rules.mk -printf '%d\t%P\n' 2>/dev/null | \
                 sort -n | cut -f2-)
 
 # Include the subdirectory rules
