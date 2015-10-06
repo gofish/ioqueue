@@ -287,20 +287,18 @@ targets: force $(TGTS)
 ### Dependency generation
 #
 # Support for C object files
-SRCS_C    := $(filter %$(C_EXT),$(SRCS))
-DEPS_C_O  := $(SRCS_C:$(C_EXT)=$(OBJ_EXT))
-DEPS_C_D  := $(SRCS_C:$(C_EXT)=$(DEP_EXT))
-DEPS_C_F  := $(sort $(foreach src,$(SRCS_C),$(dir $(src)).cflags))
+SRCS_C  := $(filter %$(C_EXT),$(SRCS))
+OBJS_C  := $(SRCS_C:$(C_EXT)=$(OBJ_EXT))
+DEPS_C  := $(SRCS_C:$(C_EXT)=$(DEP_EXT))
 # Support for C++ object files (.cc extension)
-SRCS_CC   := $(filter %$(CC_EXT),$(SRCS))
-DEPS_CC_O := $(SRCS_CC:$(CC_EXT)=$(OBJ_EXT))
-DEPS_CC_D := $(SRCS_CC:$(CC_EXT)=$(DEP_EXT))
+SRCS_CC := $(filter %$(CC_EXT),$(SRCS))
+OBJS_CC := $(SRCS_CC:$(CC_EXT)=$(OBJ_EXT))
+DEPS_CC := $(SRCS_CC:$(CC_EXT)=$(DEP_EXT))
 # Support for C++ object files (.cpp extension)
-SRCS_CPP  := $(filter %$(CPP_EXT),$(SRCS))
-DEPS_CPP_O := $(SRCS_CPP:$(CPP_EXT)=$(OBJ_EXT))
-DEPS_CPP_D := $(SRCS_CPP:$(CPP_EXT)=$(DEP_EXT))
-DEPS_CC_F := $(sort $(foreach src,$(SRCS_CC) $(SRCS_CPP),$(dir $(src)).cxxflags))
--include $(DEPS_C_D) $(DEPS_CC_D) $(DEPS_CPP_D)
+SRCS_CPP:= $(filter %$(CPP_EXT),$(SRCS))
+OBJS_CPP:= $(SRCS_CPP:$(CPP_EXT)=$(OBJ_EXT))
+DEPS_CPP:= $(SRCS_CPP:$(CPP_EXT)=$(DEP_EXT))
+-include $(DEPS_C) $(DEPS_CC) $(DEPS_CPP)
 
 ### Preprocessing pattern rules
 #
@@ -319,19 +317,17 @@ $(SRCS) $(TGTS): | $(addsuffix .exists,$(DIRS))
 #   rule will be executed with the current flags, including any target-
 #   specific modifications.  If the flags have changed the .x file is
 #   updated, forcing the .o file to be rebuilt.
-$(DEPS_C_F): force
+
+FLGS_C := $(sort $(foreach src,$(SRCS_C),$(dir $(src)).cflags))
+$(FLGS_C): force
 	new_flags=`$(CC) $(CFLAGS) $(CFLAGS_$(dir $@)) -S -fverbose-asm -o - -x c /dev/null 2>/dev/null`; \
 	old_flags=`cat '$@' 2>/dev/null`; \
 	    if [ x"$$new_flags" != x"$$old_flags" ]; then \
 	        echo -n "$$new_flags" >'$@' || exit 1; \
 	    fi
-$(DEPS_CC_F): force
-	new_flags=`$(CXX) $(CXXFLAGS) $(CXXFLAGS_$(dir $@)) -S -fverbose-asm -o - -x c++ /dev/null 2>/dev/null`; \
-	old_flags=`cat '$@' 2>/dev/null`; \
-	    if [ x"$$new_flags" != x"$$old_flags" ]; then \
-	        echo -n "$$new_flags" >'$@' || exit 1; \
-	    fi
-$(DEPS_CPP_F): force
+
+FLGS_CXX := $(sort $(foreach src,$(SRCS_CC) $(SRCS_CPP),$(dir $(src)).cxxflags))
+$(FLGS_CXX): force
 	new_flags=`$(CXX) $(CXXFLAGS) $(CXXFLAGS_$(dir $@)) -S -fverbose-asm -o - -x c++ /dev/null 2>/dev/null`; \
 	old_flags=`cat '$@' 2>/dev/null`; \
 	    if [ x"$$new_flags" != x"$$old_flags" ]; then \
@@ -356,16 +352,13 @@ $(DEPS_CPP_F): force
 
 ### Compilation pattern rules
 #
-$(DEPS_C_O): $(DEPS_C_F)
-$(DEPS_C_O): %$(OBJ_EXT): %$(C_EXT)
+$(OBJS_C): %$(OBJ_EXT): %$(C_EXT)
 	$(call announce,C   $<)
 	$(CC) $(CFLAGS) $(CFLAGS_$(dir $@)) -c $< -MMD -MP -MT $@ -MF $(@:$(OBJ_EXT)=$(DEP_EXT)) -o $@
-$(DEPS_CC_O): $(DEPS_CC_F)
-$(DEPS_CC_O): %$(OBJ_EXT): %$(CC_EXT)
+$(OBJS_CC): %$(OBJ_EXT): %$(CC_EXT)
 	$(call announce,C++ $<)
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS_$(dir $@)) -c $< -MMD -MP -MT $@ -MF $(@:$(OBJ_EXT)=$(DEP_EXT)) -o $@
-$(DEPS_CPP_O): $(DEPS_CPP_F)
-$(DEPS_CPP_O): %$(OBJ_EXT): %$(CPP_EXT)
+$(OBJS_CPP): %$(OBJ_EXT): %$(CPP_EXT)
 	$(call announce,C++ $<)
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS_$(dir $@)) -c $< -MMD -MP -MT $@ -MF $(@:$(OBJ_EXT)=$(DEP_EXT)) -o $@
 %$(OBJ_EXT): %$(C_EXT)
@@ -412,5 +405,13 @@ coverage: test $(SRCS:=.gcov)
 	$(call announce_raw,COV file://$(abspath index.html))
 	$(LCOV) -c -b $(VPATH) -d . -o lcov.out --no-external > lcov.log
 	$(GENHTML) lcov.out >genhtml.log
+
+### Secondary expansion of certain prerequisites
+#
+.SECONDEXPANSION:
+# Compilation directory flags
+$(OBJS_C):    $$(dir $$@).cflags
+$(OBJS_CC):   $$(dir $$@).cxxflags
+$(OBJS_CPP):  $$(dir $$@).cxxflags
 
 endif
