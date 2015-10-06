@@ -1,4 +1,5 @@
 #ifndef _ioqueue_H
+#define _ioqueue_H
 
 // ioqueue.h - ioqueue library API
 //
