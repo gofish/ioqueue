@@ -17,7 +17,12 @@ Requirements for KAIO backend (`make libioqueue.a`):
 Licence
 ----
 
-The library is a small wrapper around each of two backends, Linux kernal AIO (kaio) and POSIX threads (Pthreads). The former is released under the terms of the LGPL version 3 or greater, due to the direct use of Linux Kernel APIs, and the latter is released under the MIT license, provided it is linked against a compatible Pthread implementation. All reads and writes must be executed on block boundaries in multiples of 512 bytes.
+The library is a small wrapper around each of two backends, Linux kernal AIO (kaio) and POSIX threads (Pthreads). The former is released under the terms of the LGPL version 3 or greater, due to the direct use of Linux Kernel APIs. The latter is released under the 3-clause BSD license, provided it is linked against a compatible Pthread implementation.
+
+Notes
+----
+
+File descriptors are required to be opened with flag [**O\_DIRECT**][odirect].
 
 Synopsis
 ----
@@ -81,6 +86,7 @@ The API is single-threaded and is intended to be used in a single process with n
 
 On the KAIO backend, there is support for using `poll()` to detect I/O readiness. The file descriptor returned from `ioqueue_eventfd()` will receive `POLL_IN/OUT/ERR` notifications when individual requests have completed or failed. This is less efficient than directly reaping requests in a data-driven program, but may be useful for e.g. a network server that already processes events on many file descriptors via polling. In this case the server may process other network I/O events as they occurs instead of blocking during `ioqueue_reap()` for the completion of disk I/O.
 
+[odirect]: http://man7.org/linux/man-pages/man2/open.2.html
 [AIO]: https://web.archive.org/web/20150406015143/http://code.google.com/p/kernel/wiki/AIOUserGuide
 [intel_perf]: http://www.intel.com/content/www/us/en/solid-state-drives/solid-state-drives-530-series.html
 [iometer]: http://www.iometer.org/
