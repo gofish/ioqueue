@@ -22,7 +22,7 @@ The library is a small wrapper around each of two backends, Linux kernal AIO (ka
 Notes
 ----
 
-File descriptors are required to be opened with flag [**O\_DIRECT**][odirect].
+File descriptors are required to be opened with flag [**O\_DIRECT**][odirect] when using the Linux KAIO backend.
 
 Synopsis
 ----
