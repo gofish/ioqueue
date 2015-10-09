@@ -29,9 +29,9 @@ Synopsis
 
 The high random-I/O performance of solid-state drives is a relatively novel development in computing that is potentially applicable to a large number of problems.
 
-One approach to maximize performance of an SSD is to use POSIX threads to execute parallel requests via direct I/O file descriptors. Direct I/O will bypass the kernel buffer cache and execute read and writes directly to the SSD controller. Using threads is necessary, since file I/O is *always* blocking (except, below) and direct I/O will cause a disk read on every call. However, it is also necessary to use many threads in order to saturate the SSD controller, which is backed by several parallel and individually slow NANDs.
+One approach to maximize random I/O performance off an SSD is to use POSIX threads to execute parallel requests via direct I/O file descriptors. Direct I/O will bypass the kernel buffer cache and execute read and writes directly to the SSD controller. Using threads is necessary, since file I/O is *always* blocking (except, below) and using direct I/O will trigger a disk operation on every read or write. Using threads also allow parallel requests to saturate the SSD controller, which is backed by several individually slow NANDs.
 
-The exception to blocking direct I/O on Linux is the kernel [AIO][AIO] interface. These syscalls provide user-space a low-level interface to queue, reap, and poll asynchronous direct I/O requests. In writing and benchmarking `ioqueue` for random reads I found that KAIO on average could match or beat the throughput of the Pthread implementation while decreasing overall CPU usage and request latency. Both backends are able to acheive full read performance out of most SSDs.
+The exception to blocking direct I/O on Linux is the kernel [AIO][AIO] interface. These syscalls provide user-space a low-level interface to queue, reap, and poll asynchronous direct I/O requests, without threads and without signals. In writing and benchmarking `ioqueue` for random reads I found that KAIO on average could match or beat the throughput of the Pthread implementation while decreasing overall CPU usage and request latency. Both backends are able to acheive full read performance out of most SSDs.
 
 Benchmark
 ----
