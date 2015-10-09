@@ -71,20 +71,11 @@ API
 
 [ioqueue.h][ioqueue.h]
 
-Development Notes
-----
-
 The included benchmark is the best usage example. The [`ioqueue_bench()`][ioqueue_bench] function contains the ioqueue API calls.
 
-The benchmark generates `REQUEST` read requests of size `BUFSIZE` each with a random offset aligned to `BUFSIZE`. Each request is queued, using `ioqueue_pread()`, which takes a file descriptor, an output buffer, a buffer length, the file offset, and a callback. The file descriptor must be open for reading with flag `O_DIRECT` and the callback will be executed asynchronously on the current thread during some call to `ioqueue_reap`.
+The API is single-threaded and is intended to be used in a single process with no threads, or via a single I/O manager thread. The I/O itself is asynchronous and will not begin to execute until after the next call to `ioqueue_reap()`.
 
-The function `ioqueue_reap()` checks the queue for completed requests and executes their callback functions, returning the number of requests processed, which may be 0, or -1 on error. A non-zero `min` parameter, if specified, will cause the function to block until `min` requests have completed (KAIO), or at least 1 request has completed (Pthreads).
-
-In the benchmark, the reap is executed after each pread with a `min` parameter of either 0, when fewer requests are in flight than the depth of the I/O queue, or 1. It is assumed that minimizing request latency is a priority and that reaping an empty queue is a fast operation (no syscall). For the KAIO backend this feature is provided by libaio. For the Pthread backend, an empty queue implies no lock contention. Once the maximum number of in-flight requests is reached, the value 1 is passed and the reap will block until one or more requests have completed, thus freeing some space in the queue.
-
-The API is single-threaded and is intended to be used in a single process with no threads, or via a single I/O manager thread. The I/O itself is asynchronous so this main process/thread can do other work while the queue is full and `ioqueue_reap(0)` returns 0. Once the I/O is complete, callback functions are executed on main thread during the next call to `ioqueue_reap()`.
-
-On the KAIO backend, there is support for using `poll()` to detect I/O readiness. The file descriptor returned from `ioqueue_eventfd()` will receive `POLL_IN/OUT/ERR` notifications when individual requests have completed or failed. This is less efficient than directly reaping requests in a data-driven program, but may be useful for e.g. a network server that already processes events on many file descriptors via polling. In this case the server may process other network I/O events as they occurs instead of blocking during `ioqueue_reap()` for the completion of disk I/O.
+On the KAIO backend, there is support for using `poll()` to detect I/O readiness. The file descriptor returned from `ioqueue_eventfd()` will receive `POLL_IN/OUT/ERR` notifications when individual requests have completed or failed.
 
 [odirect]: http://man7.org/linux/man-pages/man2/open.2.html
 [AIO]: https://web.archive.org/web/20150406015143/http://code.google.com/p/kernel/wiki/AIOUserGuide
