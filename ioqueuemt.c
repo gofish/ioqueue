@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "ioqueue.h"
 
 /* NOTE: scales queue size but not depth/parallelism */
@@ -222,6 +223,7 @@ ioqueue_threads_start(pthread_attr_t *attr)
     /* flip the switch */
     _running = 1;
     /* create threads */
+    err = 0;
     for (i = 0; i < _nqueue; ++i) {
         queue = &_queues[i];
         pthread_mutex_init(&queue->lock, NULL);
@@ -352,15 +354,15 @@ int
 ioqueue_reap(unsigned int min)
 {
     int r;
-    unsigned int i, j, m, n;
-    struct ioqueue_request req;
+    unsigned int i, m, n;
+    struct ioqueue_request req = {0};
 
     pthread_mutex_lock(&_reap_lock);
 
     n = 0;
     do {
         m = n;
-        for (i = 0, j = 0; i < _nqueue; i++) {
+        for (i = 0; i < _nqueue; i++) {
             do {
                 r = ioqueue_request_take(&_queues[i], &req);
                 if (r == 0) {

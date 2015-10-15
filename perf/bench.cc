@@ -58,7 +58,7 @@ usage(FILE *fp, const char *me)
 {
     fprintf(fp, "usage: %s <path>..\n\n", me);
     fprintf(fp, "  Environment:\n");
-    for (int i = 0; i < _config_help.size(); i++) {
+    for (size_t i = 0; i < _config_help.size(); i++) {
         fprintf(fp, "    %s", _config_help[i].c_str());
     }
 }

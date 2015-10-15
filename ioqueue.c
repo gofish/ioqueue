@@ -252,7 +252,6 @@ static int ioqueue_submit(int *nerr)
 int ioqueue_reap(unsigned int min)
 {
     int ret, i, nerr;
-    struct ioqueue_request *req;
 
     /* cannot wait for more requests than have been submitted */
     if (_nfree == _nreqs || min > _nreqs - _nfree) {
