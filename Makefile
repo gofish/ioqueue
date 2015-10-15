@@ -108,11 +108,11 @@ release debug profile coverage: all
 
 ### Build-specific compile flags
 #
-CFLAGS_release  := -g -O1
-CXXFLAGS_release:= -g -O1
+CFLAGS_release  := -g -Wall -Werror -O1
+CXXFLAGS_release:= -g -Wall -Werror -O1
 LDFLAGS_release := -g
-CFLAGS_debug    := -g
-CXXFLAGS_debug  := -g
+CFLAGS_debug    := -g -Wall -Werror
+CXXFLAGS_debug  := -g -Wall -Werror
 LDFLAGS_debug   := -g
 CFLAGS_profile  := -pg $(CFLAGS_release)
 CXXFLAGS_profile:= -pg $(CFLAGS_release)
