@@ -24,6 +24,9 @@
 #ifndef IOQ_BACKEND
 #define IOQ_BACKEND "kaio"
 #endif
+#ifndef IOQ_OPEN_FLAGS
+#define IOQ_OPEN_FLAGS (O_RDONLY | O_DIRECT)
+#endif
 
 using namespace std;
 
@@ -123,9 +126,9 @@ open_files(char **argv)
     int ret;
     struct stat st;
     for (char **path = argv + 1; *path; path++) {
-        int fd = open(*path, O_RDONLY | O_DIRECT);
+        int fd = open(*path, IOQ_OPEN_FLAGS);
         if (fd == -1) {
-            fprintf(stderr, "%s: open(%s): %s\n", *argv, *path, strerror(errno));
+            fprintf(stderr, "%s: open(%s, %d): %s\n", *argv, *path, IOQ_OPEN_FLAGS, strerror(errno));
             exit(EXIT_FAILURE);
         }
         ret = fstat(fd, &st);
@@ -136,6 +139,12 @@ open_files(char **argv)
         if (!S_ISREG(st.st_mode) || st.st_size == 0) {
             fprintf(stderr, "%s: not a regular non-empty file: %s\n", *argv, *path);
             exit(EXIT_FAILURE);
+        }
+        /* explicitly drop existing file caches */
+        if (0 != posix_fadvise(fd, 0, st.st_size, POSIX_FADV_DONTNEED)) {
+            fprintf(stderr, "%s: posix_fadvise(%s, 0, %lld, %d): %s\n", *argv,
+                    *path, (unsigned long long) st.st_size, POSIX_FADV_DONTNEED,
+                    strerror(errno));
         }
         _files.push_back(make_pair(fd, st.st_size / BUFSIZE * BUFSIZE));
     }

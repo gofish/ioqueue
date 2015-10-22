@@ -11,3 +11,8 @@ TGTS += benchmt
 SRCS += benchmt.cc
 
 $(call depends,benchmt,../libioqueuemt.a)
+
+TGTS += benchpc
+SRCS += benchpc.cc
+
+$(call depends,benchpc,../libioqueuemt.a)
