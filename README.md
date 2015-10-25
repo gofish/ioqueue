@@ -17,7 +17,7 @@ Requirements for KAIO backend (`make libioqueue.a`):
 Licence
 ----
 
-The library is a small wrapper around each of two backends, Linux kernal AIO (kaio) and POSIX threads (Pthreads). The former is released under the terms of the LGPL version 3 or greater, due to the direct use of Linux Kernel APIs. The latter is released under the 3-clause BSD license, provided it is linked against a compatible Pthread implementation.
+The library is a small wrapper around each of two backends, Linux kernel AIO (kaio) and POSIX threads (Pthreads). The former is released under the terms of the LGPL version 3 or greater and uses the GPLv3 libaio. The latter is released under the 3-clause BSD license, provided it is linked against a compatible Pthreads implementation.
 
 Notes
 ----
@@ -27,16 +27,14 @@ File descriptors are required to be opened with flag [**O\_DIRECT**][odirect] wh
 Synopsis
 ----
 
-The high random-I/O performance of solid-state drives is a relatively novel development in computing that is potentially applicable to a large number of problems.
+One approach to minimize page caching below an alternatively cached keyspace mapped over an SSD is to use direct I/O. Direct I/O, for the most part, will bypass the buffer cache and fault read and writes to the SSD controller. Using threads to execute parallel requests is necessary therefore to prevent blocking since regular file I/O always blocks on faults. Parallel requests also saturate the SSD controller, which is backed by several individually slower NANDs. If we're forced into using direct I/O, can we do better?
 
-One approach to maximize random I/O performance off an SSD is to use POSIX threads to execute parallel requests via direct I/O file descriptors. Direct I/O will bypass the kernel buffer cache and execute read and writes directly to the SSD controller. Using threads is necessary, since file I/O is *always* blocking (except, below) and using direct I/O will trigger a disk operation on every read or write. Using threads also allow parallel requests to saturate the SSD controller, which is backed by several individually slow NANDs.
-
-The exception to blocking direct I/O on Linux is the kernel [AIO][AIO] interface. These syscalls provide user-space a low-level interface to queue, reap, and poll asynchronous direct I/O requests, without threads and without signals. In writing and benchmarking `ioqueue` for random reads I found that KAIO on average could match or beat the throughput of the Pthread implementation while decreasing overall CPU usage and request latency. Both backends are able to acheive full read performance out of most SSDs.
+The exception to blocking direct I/O on Linux is the kernel [AIO][AIO] interface. These syscalls provide users an interface to queue, reap, and poll asynchronous direct I/O requests, without threads and without signals. The implementation here provides an identical API as the threaded backend and outperforms it on the included benchmark.
 
 Benchmark
 ----
 
-Here is an example from the included micro-benchmark run on an Intel 530 series 240GB SSD over an 8GB logical address space. Maximum iops is reached immediately and is sustained until the read buffer size surpasses the disk page size of 4K, when iops roughly halfs and latency roughly doubles with each double in buffer size. Meanwhile, throughput continues to increase, with diminishing returns.
+Below is the output of the micro-benchmark run on over 8GB of logical address space on an Intel 530 series 240GB SSD. While these numbers vary from run to run, it appears on average that maximum iops is reached immediately and is sustained until the read buffer size surpasses the disk page size of 4K, when iops decreases, latency increases, and throughput continues to decrease with diminishing returns at the higher end.
 
     backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s
     kaio    262144  512     32      5632    199     1860    2060    686     46544   22.73
@@ -50,7 +48,7 @@ Here is an example from the included micro-benchmark run on an Intel 530 series 
     kaio    65536   131072  32      17365   142     1606    1749    8476    3773    471.75
     kaio    32768   262144  32      17025   57      1182    1240    16616   1924    481.15
 
-The Pthread backend here is configured to run with 32 parallel I/O threads.
+For comparison, the Pthread backend here is configured to run with 32 parallel I/O threads.
 
     backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s
     pthread 262144  512     32      5669    1017    1996    3014    690     46239   22.58
@@ -64,7 +62,6 @@ The Pthread backend here is configured to run with 32 parallel I/O threads.
     pthread 65536   131072  32      17135   442     1057    1499    8363    3824    478.06
     pthread 32768   262144  32      16974   219     856     1076    16566   1930    482.61
 
-These numbers appear to surpass the published [performance specifications][intel_perf] for the drive, which use [Iometer][iometer] over the same 8GB logical address space and with a queue depth of 32 (# of in-flight requests). Iometer has not yet been run with these settings on the same drive.
 
 API
 ---
