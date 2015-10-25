@@ -19,17 +19,21 @@ Licence
 
 The library is a small wrapper around each of two backends, Linux kernel AIO (kaio) and POSIX threads (Pthreads). The former is released under the terms of the LGPL version 3 or greater and uses the GPLv3 libaio. The latter is released under the 3-clause BSD license, provided it is linked against a compatible Pthreads implementation.
 
+Overview
+----
+
+One approach to minimize caching, especially over an SSD that backs an alternatively cached keyspace, is to use direct I/O. Direct I/O will bypass the page cache and fault reads and writes to the SSD controller. Using threads to execute parallel requests is necessary therefore to prevent blocking since regular file I/O always blocks on faults. Parallel requests also saturate the SSD controller, which is backed by several individually slower NANDs. There are many complaints by Linux developers about the direct I/O interface, however, and using threads has its own drawbacks. Are we forced to use direct I/O? Are we forced to use threads?
+
+When only reads are concerned and the user does not need to disable write buffering then a viable alternative is to use
+`posix_fadvise`. The advice parameter `POSIX_FADV_DONTNEED` can be used to drop regions of pages from the cache, while
+`POSIX_FADV_NOREUSE` can acheive identical behavior to direct I/O on reads -- do not cache any pages on reads because they will only be accessed once. Meanwhile, the O\_DSYNC flag to `open(2)` may provide synchronous write behavior analogous to O\_DIRECT. Write performance has not been tested here, but preliminary testing shows NOREUSE is a drop-in replacement for O\_DIRECT on reads.
+
+A third option that exists that offers potential improvements by eliminating threads. Regular file I/O, as mentioned, is always blocking on faults, the exception being requests executed via the kernel [AIO][AIO] interface. These syscalls provide users an interface to queue, reap, and poll asynchronous direct I/O requests, without threads and without signals. As a result the direct I/O operations may be executed fully asynchronously, with fewer syscalls, on a single core, and with no user space lock contention.
+
 Notes
 ----
 
-File descriptors are required to be opened with flag [**O\_DIRECT**][odirect] when using the Linux KAIO backend.
-
-Synopsis
-----
-
-One approach to minimize page caching below an alternatively cached keyspace mapped over an SSD is to use direct I/O. Direct I/O, for the most part, will bypass the buffer cache and fault read and writes to the SSD controller. Using threads to execute parallel requests is necessary therefore to prevent blocking since regular file I/O always blocks on faults. Parallel requests also saturate the SSD controller, which is backed by several individually slower NANDs. If we're forced into using direct I/O, can we do better?
-
-The exception to blocking direct I/O on Linux is the kernel [AIO][AIO] interface. These syscalls provide users an interface to queue, reap, and poll asynchronous direct I/O requests, without threads and without signals. The implementation here provides an identical API as the threaded backend and outperforms it on the included benchmark.
+This library implements two backends, one threaded and one using KAIO. When using the Linux KAIO backend file descriptors are required to be opened with flag [**O\_DIRECT**][odirect]. The threaded backend may be used with O\_DIRECT, or e.g. with POSIX\_FADV\_NOREUSE. Applications will likely incur lower CPU usage using the KAIO backend.
 
 Benchmark
 ----
