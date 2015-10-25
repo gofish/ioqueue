@@ -1,4 +1,4 @@
-#define IOQ_BACKEND "pthread"
+#define IOQ_BACKEND "pthread_direct"
 #include "bench.cc"
 
 //

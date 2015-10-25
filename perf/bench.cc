@@ -264,8 +264,8 @@ main(int argc, char **argv)
     cpu_system = (rusage_finish.ru_stime.tv_sec - rusage_start.ru_stime.tv_sec) * 1e6 +
                 (rusage_finish.ru_stime.tv_usec - rusage_start.ru_stime.tv_usec);
 
-    fprintf(stderr, "backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s\n");
-    fprintf(stdout, "%-7s ", IOQ_BACKEND);
+    fprintf(stderr, "backend         reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s\n");
+    fprintf(stdout, "%-15s ", IOQ_BACKEND);
     fprintf(stdout, "%-7d ", REQUESTS);
     fprintf(stdout, "%-7d ", BUFSIZE);
     fprintf(stdout, "%-7d ", Q_DEPTH);
