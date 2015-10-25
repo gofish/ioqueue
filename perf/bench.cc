@@ -146,6 +146,14 @@ open_files(char **argv)
                     *path, (unsigned long long) st.st_size, POSIX_FADV_DONTNEED,
                     strerror(errno));
         }
+#ifdef IOQ_FADV_POLICY
+        /* advise the kernel of our access pattern */
+        if (0 != posix_fadvise(fd, 0, st.st_size, IOQ_FADV_POLICY)) {
+            fprintf(stderr, "%s: posix_fadvise(%s, 0, %lld, %d): %s\n", *argv,
+                    *path, (unsigned long long) st.st_size, IOQ_FADV_POLICY,
+                    strerror(errno));
+        }
+#endif
         _files.push_back(make_pair(fd, st.st_size / BUFSIZE * BUFSIZE));
     }
 }
