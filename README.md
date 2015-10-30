@@ -1,7 +1,7 @@
 ioqueue
 ====
 
-Fast asynchronous direct I/O operations in C.
+Asynchronous direct I/O operations in C.
 
 Building
 ----
