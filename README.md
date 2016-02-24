@@ -38,7 +38,7 @@ This library implements two backends, one threaded and one using KAIO. When usin
 Benchmark
 ----
 
-Below is the output of the micro-benchmark run on over 8GB of logical address space on an Intel 530 series 240GB SSD. Further analysis should show that maximum iops is reached immediately and is sustained until the read buffer size surpasses the disk page size of 4K, when iops decreases and latency increases but throughput continues to increase, with diminishing returns.
+Below is the output of the [micro-benchmark][bench.cc] run on over 8GB of logical address space on an Intel 530 series 240GB SSD. Further analysis should show that maximum iops is reached immediately and is sustained until the read buffer size surpasses the disk page size of 4K, when iops decreases and latency increases but throughput continues to increase, with diminishing returns.
 
     backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s
     kaio    262144  512     32      5632    199     1860    2060    686     46544   22.73
@@ -52,7 +52,7 @@ Below is the output of the micro-benchmark run on over 8GB of logical address sp
     kaio    65536   131072  32      17365   142     1606    1749    8476    3773    471.75
     kaio    32768   262144  32      17025   57      1182    1240    16616   1924    481.15
 
-For comparison here the [Pthread backend][ioqueuemt.c] is configured to run with 32 parallel I/O threads.
+For comparison here the Pthread backend is configured to run with 32 parallel I/O threads.
 
     backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s
     pthread 262144  512     32      5669    1017    1996    3014    690     46239   22.58
@@ -84,4 +84,5 @@ On the KAIO backend, there is support for using `poll()` to detect I/O readiness
 [intel_perf]: http://www.intel.com/content/www/us/en/solid-state-drives/solid-state-drives-530-series.html
 [iometer]: http://www.iometer.org/
 [ioqueue.h]: ioqueue.h
+[bench.cc]: perf/bench.cc
 [ioqueue_bench]: perf/bench.cc#L170
