@@ -22,13 +22,13 @@ The library is a small wrapper around each of two backends, Linux kernel AIO (ka
 Overview
 ----
 
-One approach to minimize caching, especially over an SSD that backs an alternatively cached keyspace, is to use direct I/O. Direct I/O will bypass the page cache and fault reads and writes to the SSD controller. Using threads to execute parallel requests is necessary therefore to prevent blocking since regular file I/O always blocks on faults. Parallel requests also saturate the SSD controller, which is backed by several individually slower NANDs. There are many complaints by Linux developers about the direct I/O interface, however, and using threads has its own drawbacks. Are we forced to use direct I/O? Are we forced to use threads?
+One approach to minimize kernel page caching over an SSD that backs an alternatively cached keyspace is to use direct I/O. Direct I/O will bypass the page cache and fault reads and writes to the SSD controller. Using threads to execute parallel requests is therefore necessary to prevent blocking, since regular file I/O always blocks on faults. Parallel requests also saturate the SSD controller, which is backed by several individually slower NANDs. There are many complaints by Linux developers about the direct I/O interface, however, and using threads has its own drawbacks. Are we forced to use direct I/O? Are we forced to use threads?
 
 When only reads are concerned and the user does not need to disable write buffering then a viable alternative is to use
 `posix_fadvise`. The advice parameter `POSIX_FADV_DONTNEED` can be used to drop regions of pages from the cache, while
-`POSIX_FADV_NOREUSE` can acheive identical behavior to direct I/O on reads -- do not cache any pages on reads because they will only be accessed once. Meanwhile, the O\_DSYNC flag to `open(2)` may provide synchronous write behavior analogous to O\_DIRECT. Write performance has not been tested here, but preliminary testing shows NOREUSE is a drop-in replacement for O\_DIRECT on reads.
+`POSIX_FADV_NOREUSE` can acheive identical behavior to direct I/O on reads -- do not cache any pages on reads because they will only be accessed once. Meanwhile, the O\_DSYNC flag to `open(2)` may provide synchronous write behavior analogous to O\_DIRECT. Write performance has not been tested but preliminary testing on reads under threads shows NOREUSE is a drop-in replacement for O\_DIRECT.
 
-A third option that exists that offers potential improvements by eliminating threads. Regular file I/O, as mentioned, is always blocking on faults, the exception being requests executed via the kernel [AIO][AIO] interface. These syscalls provide users an interface to queue, reap, and poll asynchronous direct I/O requests, without threads and without signals. As a result the direct I/O operations may be executed fully asynchronously, with fewer syscalls, on a single core, and with no user space lock contention.
+Another option that offers potential improvements by eliminating threads is the kernel [AIO][AIO] interface (not to be confused with POSIX AIO). Regular file I/O, as mentioned, is always blocking on faults, but the AIO interface is different. These syscalls provide users an interface to queue, reap, and poll asynchronous direct I/O requests, without threads and without signals. As a result the direct I/O operations may be executed fully asynchronously, with fewer syscalls, on a single core, and with no user space lock contention.
 
 Notes
 ----
@@ -38,7 +38,7 @@ This library implements two backends, one threaded and one using KAIO. When usin
 Benchmark
 ----
 
-Below is the output of the micro-benchmark run on over 8GB of logical address space on an Intel 530 series 240GB SSD. While these numbers vary from run to run, it appears on average that maximum iops is reached immediately and is sustained until the read buffer size surpasses the disk page size of 4K, when iops decreases, latency increases, and throughput continues to decrease with diminishing returns at the higher end.
+Below is the output of the micro-benchmark run on over 8GB of logical address space on an Intel 530 series 240GB SSD. Further analysis should show that maximum iops is reached immediately and is sustained until the read buffer size surpasses the disk page size of 4K, when iops decreases and latency increases but throughput continues to increase, with diminishing returns.
 
     backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s
     kaio    262144  512     32      5632    199     1860    2060    686     46544   22.73
@@ -52,7 +52,7 @@ Below is the output of the micro-benchmark run on over 8GB of logical address sp
     kaio    65536   131072  32      17365   142     1606    1749    8476    3773    471.75
     kaio    32768   262144  32      17025   57      1182    1240    16616   1924    481.15
 
-For comparison, the Pthread backend here is configured to run with 32 parallel I/O threads.
+For comparison here the [Pthread backend][ioqueuemt.c] is configured to run with 32 parallel I/O threads.
 
     backend reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s
     pthread 262144  512     32      5669    1017    1996    3014    690     46239   22.58
@@ -66,6 +66,7 @@ For comparison, the Pthread backend here is configured to run with 32 parallel I
     pthread 65536   131072  32      17135   442     1057    1499    8363    3824    478.06
     pthread 32768   262144  32      16974   219     856     1076    16566   1930    482.61
 
+The primary difference is the amount of user-space cpu time (utime) required, as would be expected vs. a userspace-lock-free design. An implementation of a pthread-backed lock-free I/O queue would be useful for further comparison, but as it stands the AIO queue has proved its worth, especially for integration with pthread-free binaries.
 
 API
 ---
