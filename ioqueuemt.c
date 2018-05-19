@@ -198,7 +198,7 @@ ioqueue_thread_run(void *tdata)
 static void
 ioqueue_stop_wait()
 {
-    int i;
+    unsigned int i;
     /* flip the switch */
     _running = 0;
     /* signal any waiting threads */
@@ -217,7 +217,7 @@ ioqueue_stop_wait()
 static int
 ioqueue_threads_start(pthread_attr_t *attr)
 {
-    int i;
+    unsigned int i;
     int err;
     struct ioqueue_queue *queue;
     /* flip the switch */
@@ -255,7 +255,7 @@ ioqueue_init(unsigned int depth)
 {
     int err;
     pthread_attr_t attr;
-    if (_queues) {
+    if (_queues || depth == 0) {
         errno = EINVAL;
         return -1;
     }

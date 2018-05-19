@@ -1,3 +1,4 @@
+CXXFLAGS := -Wextra
 LDFLAGS := -pthread
 LDLIBS  := -lgtest -lgtest_main
 

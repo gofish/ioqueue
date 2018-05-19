@@ -77,10 +77,10 @@ static struct iocb **_io_reqs;
 static struct io_event *_io_evs;
 /* KAIO context - opaque integer handle */
 static aio_context_t _ctx = 0;
-static int _depth;      /* maximum outstanding requests */
-static int _nreqs;      /* allocated request objects */
-static int _nfree;      /* free request stack size */
-static int _nwait;      /* waiting request stack size */
+static unsigned int _depth;      /* maximum outstanding requests */
+static unsigned int _nreqs;      /* allocated request objects */
+static unsigned int _nfree;      /* free request stack size */
+static unsigned int _nwait;      /* waiting request stack size */
 static int _eventfd;    /* eventfd(2) for poll/epoll */
 
 
@@ -88,7 +88,7 @@ static int _eventfd;    /* eventfd(2) for poll/epoll */
 int ioqueue_init(unsigned int depth)
 {
     int ret;
-    if (_ctx != 0) {
+    if (_ctx != 0 || depth == 0) {
         errno = EINVAL;
         return -1;
     }
@@ -218,8 +218,8 @@ int ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, v
 /* submit as many requests as possible from the front of the queue */
 static int ioqueue_submit(int *nerr)
 {
-    int n;
-    int i;
+    unsigned int n;
+    unsigned int i;
     int ret;
     n = 0;
     for (i = 0; i < _nwait; i += ret) {

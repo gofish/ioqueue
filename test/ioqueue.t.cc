@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -20,20 +21,17 @@
 #endif
 
 TEST(TEST_NAME(InitTest), InitTest) {
-    int ret;
-    EXPECT_EQ(-1, (ret = ioqueue_init(0))) << "ioqueue_init: " << strerror(errno);
-    if (ret == 0) {
-        ioqueue_destroy();
-        FAIL();
-    };
+    ASSERT_EQ(-1, ioqueue_init(0)) << "ioqueue_init: " << strerror(errno);
+    ASSERT_EQ(-1, ioqueue_init(UINT_MAX)) << "ioqueue_init: " << strerror(errno);
     for (int i = 0; i < 13; i++) {
+        int ret;
         ASSERT_EQ(0, (ret = ioqueue_init(1 << i))) << "ioqueue_init: " << strerror(errno);
         if (ret == 0) {
             ioqueue_destroy();
         }
     }
-    ASSERT_EQ(0, (ret = ioqueue_init(1))) << "ioqueue_init: " << strerror(errno);
-    EXPECT_EQ(-1, (ret = ioqueue_init(1))) << "ioqueue_init: " << strerror(errno);
+    ASSERT_EQ(0, ioqueue_init(1)) << "ioqueue_init: " << strerror(errno);
+    EXPECT_EQ(-1, ioqueue_init(1)) << "ioqueue_init: " << strerror(errno);
 #if HAVE_EVENTFD
     EXPECT_NE(-1, ioqueue_eventfd());
 #else
@@ -77,6 +75,7 @@ class TEST_NAME(TestClass) : public ::testing::Test {
     }
 
     static void Callback(void *arg, ssize_t res, void *buf) {
+        ASSERT_NE((void*)NULL, buf);
         TEST_NAME(TestClass) *const self = (TEST_NAME(TestClass) *) arg;
         self->res_ = res;
         if (res < 0) {
@@ -129,8 +128,10 @@ TEST_F(TEST_NAME(TestClass), BadReapTest)
 {
     ASSERT_EQ(-1, ioqueue_reap(0));
     ASSERT_EQ(-1, ioqueue_reap(1));
+    ASSERT_EQ(-1, ioqueue_reap(UINT_MAX));
     ASSERT_EQ(0, ioqueue_pread(fd_, buf_, BUFSIZE, 0, &Callback, this));
     ASSERT_EQ(-1, ioqueue_reap(2));
+    ASSERT_EQ(-1, ioqueue_reap(UINT_MAX));
     ASSERT_EQ(1, ioqueue_reap(1));
 }
 
