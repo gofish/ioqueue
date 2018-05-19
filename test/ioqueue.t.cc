@@ -88,7 +88,7 @@ class TEST_NAME(TestClass) : public ::testing::Test {
     int fd_;
     char path_[256];
     char *buf_;
-    int res_;
+    ssize_t res_;
     int err_;
 };
 
