@@ -1,4 +1,6 @@
 
+CFLAGS += -Wextra -Wconversion
+
 TGTS := libioqueue.a
 SRCS := ioqueue.c
 

@@ -18,6 +18,7 @@
 // see <http://www.gnu.org/licenses/>.
 
 #include <errno.h>
+#include <limits.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <stdint.h>
@@ -31,7 +32,7 @@
 /* the request file operation */
 #define IOCB_OP(iocbp)       (*(unsigned short*)&((iocbp)->aio_lio_opcode))
 /* the request file descriptor */
-#define IOCB_FD(iocbp)         (*(unsigned int*)&((iocbp)->aio_fildes))
+#define IOCB_FD(iocbp)         (*(int*)&((iocbp)->aio_fildes))
 /* the request buffer */
 #define IOCB_BUF(iocbp)               (*(void**)&((iocbp)->aio_buf))
 /* the request length */
@@ -43,12 +44,12 @@
 /* the request flags */
 #define IOCB_FLAGS(iocbp)      (*(unsigned int*)&((iocbp)->aio_flags))
 /* the request eventfd */
-#define IOCB_RESFD(iocbp)      (*(unsigned int*)&((iocbp)->aio_resfd))
+#define IOCB_RESFD(iocbp)      (*(int*)&((iocbp)->aio_resfd))
 /* the event closure data */
 #define IOEV_DATA(ioev)               (*(void**)&(ioev)->data)
 
 /* KAIO syscalls - wrappers provided by libaio */
-extern int io_setup(int depth, aio_context_t *ctxp);
+extern int io_setup(unsigned depth, aio_context_t *ctxp);
 extern int io_destroy(aio_context_t ctx);
 extern int io_submit(aio_context_t ctx, long nr, struct iocb *ios[]);
 extern int io_cancel(aio_context_t ctx, struct iocb *iocbp, struct io_event *evp);
@@ -77,10 +78,10 @@ static struct iocb **_io_reqs;
 static struct io_event *_io_evs;
 /* KAIO context - opaque integer handle */
 static aio_context_t _ctx = 0;
-static int _depth;      /* maximum outstanding requests */
-static int _nreqs;      /* allocated request objects */
-static int _nfree;      /* free request stack size */
-static int _nwait;      /* waiting request stack size */
+static unsigned int _depth;      /* maximum outstanding requests */
+static unsigned int _nreqs;      /* allocated request objects */
+static unsigned int _nfree;      /* free request stack size */
+static unsigned int _nwait;      /* waiting request stack size */
 static int _eventfd;    /* eventfd(2) for poll/epoll */
 
 
@@ -88,15 +89,15 @@ static int _eventfd;    /* eventfd(2) for poll/epoll */
 int ioqueue_init(unsigned int depth)
 {
     int ret;
-    if (_ctx != 0) {
+    if (_ctx != 0 || depth == 0 || depth > INT_MAX) {
         errno = EINVAL;
         return -1;
     }
-    _io_reqs = malloc(depth * sizeof(struct iocb *));
+    _io_reqs = malloc((size_t)depth * sizeof(struct iocb *));
     if (_io_reqs == NULL) {
         return -1;
     }
-    _io_evs = malloc(depth * sizeof(struct io_event));
+    _io_evs = malloc((size_t)depth * sizeof(struct io_event));
     if (_io_evs == NULL) {
         free(_io_reqs);
         return -1;
@@ -108,7 +109,7 @@ int ioqueue_init(unsigned int depth)
         errno = -ret;
         return -1;
     }
-    _depth = depth;
+    _depth = (unsigned int)depth;
     _nreqs = 0;
     _nfree = 0;
     _nwait = 0;
@@ -216,45 +217,45 @@ int ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, v
 }
 
 /* submit as many requests as possible from the front of the queue */
-static int ioqueue_submit(int *nerr)
+static int ioqueue_submit(unsigned int *nerr)
 {
-    int n;
-    int i;
+    unsigned int i, n;
     int ret;
-    n = 0;
-    for (i = 0; i < _nwait; i += ret) {
+    for (i = 0, n = 0; i < _nwait;) {
         ret = io_submit(_ctx, _nwait - i, _io_reqs + i);
         if (ret < 0) {
             if (-ret == EBADF) {
                 /* head of the queue is bad, finish the request and continue */
                 ioqueue_request_finish(IOCB_DATA(_io_reqs[i]), -1, EBADF);
-                ret = 1;
+                i ++;
             } else {
                 /* ensure wait-queue occupies the head of the array */
-                memmove(_io_reqs, _io_reqs + i, _nwait - i);
+                memmove(_io_reqs, _io_reqs + i, (size_t)(_nwait - i));
                 _nwait -= i;
                 errno = -ret;
                 return -1;
             }
         } else {
             /* count the submitted requests (excludes EBADF above) */
-            n += ret;
+            n += (unsigned int)ret;
+            i += (unsigned int)ret;
         }
     }
     _nwait -= i;
     if (nerr) {
-        *nerr = i - n;
+        *nerr = (i - n);
     }
-    return n;
+    return (int)n; // n <= _nwait <= INT_MAX
 }
 
 /* fetch and process any completed requests */
 int ioqueue_reap(unsigned int min)
 {
-    int ret, i, nerr;
+    int ret, i;
+    unsigned int nerr;
 
-    /* cannot wait for more requests than have been submitted */
-    if (_nfree == _nreqs || min > _nreqs - _nfree) {
+    /* cannot wait for more requests than have been allocated */
+    if (_nfree == _nreqs || min > _nreqs || (unsigned int)min > _nreqs - _nfree) {
         errno = EINVAL;
         return -1;
     }
@@ -264,7 +265,7 @@ int ioqueue_reap(unsigned int min)
     if (ret == -1) return ret;
 
     /* re-adjust minimum to account for EBADF-finished requests */
-    if (nerr) {
+    if (nerr > 0) {
         min -= nerr;
     }
 
@@ -278,10 +279,10 @@ int ioqueue_reap(unsigned int min)
 
     /* finish the reaped requests */
     for (i = 0; i < ret; i++) {
-        ioqueue_request_finish(IOEV_DATA(&_io_evs[i]), _io_evs[i].res, _io_evs[i].res2);
+        ioqueue_request_finish(IOEV_DATA(&_io_evs[i]), _io_evs[i].res, (int)_io_evs[i].res2);
     }
     /* return the number of completed requests */
-    return ret + nerr;
+    return ret + (int)nerr;
 }
 
 void ioqueue_destroy()

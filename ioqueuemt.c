@@ -29,6 +29,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -63,10 +64,10 @@ struct ioqueue_queue {
     pthread_mutex_t lock;
     pthread_cond_t cond;
     struct ioqueue_request *reqs;
-    unsigned short head;       /* the first request in the queue */
-    unsigned short done;       /* the number of requests that have been completed */
-    unsigned short size;       /* the total number of requests on the queue */
-    unsigned short wait;       /* the thread needs a signal when reaped */
+    unsigned int head;  /* the first request in the queue */
+    unsigned int done;  /* the number of requests that have been completed */
+    unsigned int size;  /* the total number of requests on the queue */
+    unsigned int wait;  /* the thread needs a signal when reaped */
 };
 
 static unsigned int _backlog;
@@ -152,7 +153,7 @@ ioqueue_request_take(struct ioqueue_queue *queue, struct ioqueue_request *req)
         --queue->done;
         --queue->size;
     } else if (queue->size) {
-        ret = queue->size;
+        ret = (int)queue->size;
     } else {
         ret = -1;
     }
@@ -172,11 +173,11 @@ ioqueue_thread_run(void *tdata)
         /* process the request */
         switch (req->op) {
         case ioqueue_OP_PREAD:
-            req->u.rw.x = pread(req->fd, req->u.rw.buf, req->u.rw.x, req->u.rw.off);
+            req->u.rw.x = pread(req->fd, req->u.rw.buf, (size_t)req->u.rw.x, req->u.rw.off);
             break;
 
         case ioqueue_OP_PWRITE:
-            req->u.rw.x = pwrite(req->fd, req->u.rw.buf, req->u.rw.x, req->u.rw.off);
+            req->u.rw.x = pwrite(req->fd, req->u.rw.buf, (size_t)req->u.rw.x, req->u.rw.off);
             break;
 
         default:
@@ -198,7 +199,7 @@ ioqueue_thread_run(void *tdata)
 static void
 ioqueue_stop_wait()
 {
-    int i;
+    unsigned int i;
     /* flip the switch */
     _running = 0;
     /* signal any waiting threads */
@@ -217,7 +218,7 @@ ioqueue_stop_wait()
 static int
 ioqueue_threads_start(pthread_attr_t *attr)
 {
-    int i;
+    unsigned int i;
     int err;
     struct ioqueue_queue *queue;
     /* flip the switch */
@@ -255,7 +256,7 @@ ioqueue_init(unsigned int depth)
 {
     int err;
     pthread_attr_t attr;
-    if (_queues) {
+    if (_queues || depth == 0 || depth > INT_MAX) {
         errno = EINVAL;
         return -1;
     }
@@ -309,12 +310,17 @@ ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *
     unsigned int tries;
     struct ioqueue_request req;
 
+    if (len > SSIZE_MAX) {
+        errno = EINVAL;
+        return -1;
+    }
+
     req.op = ioqueue_OP_PREAD;
     req.fd = fd;
     req.cb = (ioqueue_cb) cb;
     req.cb_arg = cb_arg;
     req.u.rw.buf = buf;
-    req.u.rw.x = len;
+    req.u.rw.x = (ssize_t)len;
     req.u.rw.off = offset;
 
     for (tries = 0; tries < _nqueue; tries ++) {
@@ -333,12 +339,17 @@ ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void 
     unsigned int tries;
     struct ioqueue_request req;
 
+    if (len > SSIZE_MAX) {
+        errno = EINVAL;
+        return -1;
+    }
+
     req.op = ioqueue_OP_PWRITE;
     req.fd = fd;
     req.cb = (ioqueue_cb) cb;
     req.cb_arg = cb_arg;
     req.u.rw.buf = buf;
-    req.u.rw.x = len;
+    req.u.rw.x = (ssize_t)len;
     req.u.rw.off = offset;
 
     for (tries = 0; tries < _nqueue; tries ++) {
@@ -359,6 +370,7 @@ ioqueue_reap(unsigned int min)
 
     pthread_mutex_lock(&_reap_lock);
 
+    // TODO: clean this up
     n = 0;
     do {
         m = n;
@@ -377,7 +389,7 @@ ioqueue_reap(unsigned int min)
                     case ioqueue_OP_PWRITE:
                         if (req.u.rw.x < 0) {
                             /* set errno for callback */
-                            errno = -req.u.rw.x;
+                            errno = (int)-req.u.rw.x;
                             req.u.rw.x = -1;
                         }
                         (* (ioqueue_cb) req.cb)(req.cb_arg, req.u.rw.x, req.u.rw.buf);
@@ -389,14 +401,15 @@ ioqueue_reap(unsigned int min)
                     /* reacquire reap lock */
                     pthread_mutex_lock(&_reap_lock);
                 } else if (r > 0) {
-                    m += r; /* we saw `r` requests on the queue */
+                    m += (unsigned int)r; /* we saw `r` requests on the queue */
                 }
             } while (r == 0); /* try to take another */
         }
         if (!m || m < min) {
             /* there were less requests queued than requested */
-            n = -1;
             errno = EINVAL;
+            pthread_mutex_unlock(&_reap_lock);
+            return -1;
         } else if (n < min && n < m) {
             /* there is at least one more request enqueued, wait for it */
             pthread_cond_wait(&_reap_cond, &_reap_lock);
@@ -404,7 +417,7 @@ ioqueue_reap(unsigned int min)
     } while (n < min && n < m);
 
     pthread_mutex_unlock(&_reap_lock);
-    return n;
+    return (int)n;
 }
 
 /* reap all requests and destroy the queue */

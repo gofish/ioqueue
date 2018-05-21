@@ -1,3 +1,4 @@
+CXXFLAGS := -Wextra -Wconversion
 LDFLAGS := -pthread
 
 TGTS += bench
