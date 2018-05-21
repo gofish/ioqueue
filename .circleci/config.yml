@@ -8,7 +8,7 @@ jobs:
       - image: ubuntu:xenial
     steps:
       - checkout
-      - run: apt-get install libaio-dev
+      - run: sudo apt-get install libaio-dev
       - run: make
       - persist_to_workspace:
           root: .
