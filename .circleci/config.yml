@@ -3,8 +3,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: ubuntu:trusty
-      - image: gcc:5
+      - image: circleci/golang:1.10
     steps:
       - checkout
       - run: make
@@ -14,8 +13,7 @@ jobs:
             - build
   test:
     docker:
-      - image: ubuntu:trusty
-      - image: gcc:5
+      - image: circleci/golang:1.10
     steps:
       - checkout
       - attach_workspace:
