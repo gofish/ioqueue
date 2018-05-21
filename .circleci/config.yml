@@ -9,7 +9,7 @@ jobs:
     steps:
       - checkout
       - run: sudo apt-get install libaio-dev libgtest-dev cmake
-      - run: (cd /usr/src/gtest/ && sudo cmake -DCMAKE_BUILD_TYPE=RELEASE . && sudo make)
+      - run: (cd /usr/src/gtest/ && sudo cmake -DCMAKE_BUILD_TYPE=RELEASE . && sudo make && sudo mv -nv libgtest* /usr/lib)
       - run: make
       - persist_to_workspace:
           root: .
