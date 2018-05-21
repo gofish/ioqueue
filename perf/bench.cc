@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -92,32 +91,29 @@ free_buffers()
 #define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
 #endif
 
-int64_t
+unsigned long
 timestamp()
 {
     struct timespec tp;
     clock_gettime(CLOCK_MONOTONIC_RAW, &tp);
-    return (int64_t)(tp.tv_sec) * 1000000000L + tp.tv_nsec;
+    return tp.tv_sec * 1000000000L + tp.tv_nsec;
 }
 
-int64_t
-timevalue(struct timeval tv)
-{
-    return (int64_t)(tv.tv_sec) * 1000000000L + (int64_t)(tv.tv_usec) * 100L;
-}
-
-int64_t _time_wait_total = 0;
+unsigned long _start_time;
+unsigned long _cumul_time;
 
 void
 aio_callback(void *closure, ssize_t result, void *buf)
 {
-    // fail benchmark on read error
+    unsigned long start, finish;
     if (result < 0) {
         fprintf(stderr, "pread: %s", strerror(-result));
         exit(EXIT_FAILURE);
     }
+    finish = timestamp();
+    start = (unsigned long)closure;
     // track total request latency
-    _time_wait_total += timestamp() - (int64_t)(closure);
+    _cumul_time += finish - start;
     // return buffer to free pool
     _buffers.push_back(buf);
 }
@@ -208,18 +204,13 @@ ioqueue_bench()
     /* queue all the requests */
     for (int i = 0; i < REQUESTS; ) {
         while (!_buffers.empty()) {
-            /* generate a random read request */
+            /* take a buffer and generate a random read request */
             const pair<int, off_t> req = next_read_request(&rdata);
-
-            /* take the next available buffer */
             void *const buf = _buffers.back();
             _buffers.pop_back();
 
-            /* record the start time as a pointer (TODO: pass actual pointer to timestamp) */
-            void *const closure = (void *)(timestamp());
-
             /* enqueue the read request -- non-blocking */
-            ret = ioqueue_pread(req.first, buf, BUFSIZE, req.second, &aio_callback, closure);
+            ret = ioqueue_pread(req.first, buf, BUFSIZE, req.second, &aio_callback, (void *)timestamp());
             if (ret == -1) {
                 perror("ioqueue_pread");
                 exit(EXIT_FAILURE);
@@ -242,13 +233,8 @@ ioqueue_bench()
 int
 main(int argc, char **argv)
 {
-    int64_t time_start;
-    int64_t time_total;
-    int64_t time_cpu_user;
-    int64_t time_cpu_system;
-
-    struct rusage rusage_start;
-    struct rusage rusage_finish;
+    unsigned long total_time, total_size, cpu_user, cpu_system;
+    struct rusage rusage_start, rusage_finish;
 
     /* initialize global variables from env */
     env_init();
@@ -261,36 +247,35 @@ main(int argc, char **argv)
     open_files(argv);
     init_buffers();
 
-    /* record start time */
-    time_start = timestamp();
-
-    /* record cpu usage at start */
+    /* record start time and cpu usage */
+    _start_time = timestamp();
+    _cumul_time = 0;
     getrusage(RUSAGE_SELF, &rusage_start);
 
     /* run the benchmark */
     ioqueue_bench();
 
-    /* record cpu usage at finish */
+    /* calculate throughput and average request latency */
+    total_time = timestamp() - _start_time;
     getrusage(RUSAGE_SELF, &rusage_finish);
-    time_cpu_user = timevalue(rusage_finish.ru_utime) - timevalue(rusage_start.ru_utime);
-    time_cpu_system = timevalue(rusage_finish.ru_stime) - timevalue(rusage_start.ru_stime);
+    total_size = (unsigned long)BUFSIZE * REQUESTS;
+    cpu_user = (rusage_finish.ru_utime.tv_sec - rusage_start.ru_utime.tv_sec) * 1e6 +
+                (rusage_finish.ru_utime.tv_usec - rusage_start.ru_utime.tv_usec);
+    cpu_system = (rusage_finish.ru_stime.tv_sec - rusage_start.ru_stime.tv_sec) * 1e6 +
+                (rusage_finish.ru_stime.tv_usec - rusage_start.ru_stime.tv_usec);
 
-    /* record finish time */
-    time_total = timestamp() - time_start;
-
-    /* report throughput and average request latency */
     fprintf(stderr, "backend         reqs    bufsize depth   rtime   utime   stime   cpu     us/op   op/s    MB/s\n");
     fprintf(stdout, "%-15s ", IOQ_BACKEND);
     fprintf(stdout, "%-7d ", REQUESTS);
     fprintf(stdout, "%-7d ", BUFSIZE);
     fprintf(stdout, "%-7d ", Q_DEPTH);
-    fprintf(stdout, "%-7lld ", (long long)(time_total / 1e6));
-    fprintf(stdout, "%-7lld ", (long long)(time_cpu_user / 1e3));
-    fprintf(stdout, "%-7lld ", (long long)(time_cpu_system / 1e3));
-    fprintf(stdout, "%-7lld ", (long long)((time_cpu_user + time_cpu_system) / 1e3));
-    fprintf(stdout, "%-7lld ", (long long)(_time_wait_total / 1e3 / REQUESTS));
-    fprintf(stdout, "%-7lld ", (long long)(REQUESTS / (_time_wait_total / 1e9)));
-    fprintf(stdout, "%-7.2f ", ((size_t)BUFSIZE * REQUESTS) / (_time_wait_total / 1e9f) / (1 << 20));
+    fprintf(stdout, "%-7lu ", (unsigned long)(total_time / 1e6));
+    fprintf(stdout, "%-7lu ", (unsigned long)(cpu_user / 1e3));
+    fprintf(stdout, "%-7lu ", (unsigned long)(cpu_system / 1e3));
+    fprintf(stdout, "%-7lu ", (unsigned long)((cpu_user + cpu_system) / 1e3));
+    fprintf(stdout, "%-7lu ", (unsigned long)(_cumul_time / 1e3 / REQUESTS));
+    fprintf(stdout, "%-7lu ", (unsigned long)(REQUESTS / (total_time / 1e9)));
+    fprintf(stdout, "%-7.2f ", total_size / (total_time / 1e9) / (1 << 20));
     fprintf(stdout, "\n");
 
     /* close input files and exit*/
