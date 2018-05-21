@@ -8,7 +8,8 @@ jobs:
       - image: ubuntu:xenial
     steps:
       - checkout
-      - run: sudo apt-get install libaio-dev
+      - run: sudo apt-get install libaio-dev libgtest-dev cmake
+      - run: (cd /usr/src/gtest/ && sudo cmake -DCMAKE_BUILD_TYPE=RELEASE . && sudo make)
       - run: make
       - persist_to_workspace:
           root: .
