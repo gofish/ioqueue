@@ -8,15 +8,12 @@ Licence
 
 The library is a small wrapper around each of two backends, one implemented using Linux kernel AIO ([KAIO][KAIO]) and one using POSIX threads (Pthreads). The former is released under the terms of the LGPL version 3 or greater and uses the GPLv3 libaio. The latter is released under the 3-clause BSD license, provided it is linked against a compatible Pthreads implementation.
 
-Notes
-----
-
-When using the Linux KAIO backend, file descriptors passed to `ioqueue_pread` and `ioqueue_pwrite` are required to have been [opened][open] with flag O\_DIRECT. The threaded backend may be used with O\_DIRECT or e.g. with POSIX\_FADV\_NOREUSE. Applications will likely incur lower CPU usage using the KAIO backend.
-
 API
 ---
 
 The API is single-threaded and is intended to be used in a single process with no threads, or via a single I/O manager thread. The I/O itself is asynchronous and will not begin to execute until after the next call to `ioqueue_reap()`, which blocks.
+
+When using the Linux KAIO backend, file descriptors passed to `ioqueue_pread` and `ioqueue_pwrite` are required to have been [opened][open] with flag O\_DIRECT. The threaded backend may be used with O\_DIRECT or e.g. with POSIX\_FADV\_NOREUSE. Applications will likely incur lower CPU usage using the KAIO backend.
 
 From [ioqueue.h][ioqueue.h]:
 
