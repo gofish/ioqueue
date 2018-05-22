@@ -76,4 +76,4 @@ $ g++ -g -pthread -o benchmark/bench benchmark/bench.o ioqueue.o -laio -lrt
 [ioqueue.h]: ioqueue.h
 [benchmark]: benchmark/
 [bench.cc]: benchmark/bench.cc
-[ioqueue_bench]: benchmark/bench.cc#L170
+[ioqueue_bench]: benchmark/bench.cc#L222
