@@ -36,7 +36,7 @@ extern "C" {
 
 typedef void (*ioqueue_cb)(void *arg, ssize_t res, void *buf);
 
-/* initialize the io queue to the given maximum outstanding requests */
+/* initialize the queue to the given maximum outstanding requests */
 int  ioqueue_init(unsigned int depth);
 
 /* retrieve a file descriptor suitable for io readiness notifications via e.g. poll/epoll */
