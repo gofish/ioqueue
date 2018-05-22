@@ -68,7 +68,7 @@ For example, on Ubuntu 16.04 a manual build might look like
 ```
 $ cc -g -O1 -c ioqueue.c -o ioqueue.o
 $ g++ -g -O1 -c benchmark/bench.cc -o benchmark/bench.o
-$ g++ -g -pthread -o benchmark/bench benchmark/bench.o ioqueue.o -laio -lrt
+$ g++ -g -o benchmark/bench benchmark/bench.o ioqueue.o -laio -lrt
 ```
 
 [open]: http://man7.org/linux/man-pages/man2/open.2.html
