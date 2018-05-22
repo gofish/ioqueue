@@ -21,13 +21,13 @@ From [ioqueue.h][ioqueue.h]:
 /* initialize the queue to the given maximum outstanding requests */
 int  ioqueue_init(unsigned int depth);
 
-/* read/write callback function type */
+/* read/write callback function type (required) */
 typedef void (*ioqueue_cb)(void *arg, ssize_t res, void *buf);
 
-/* enqueue a pread request  */
+/* enqueue a pread request */
 int  ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_arg);
 
-/* enqueue a pwrite request  */
+/* enqueue a pwrite request */
 int  ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_arg);
 
 /* submit requests and handle completion events */
@@ -36,6 +36,11 @@ int  ioqueue_reap(unsigned int min);
 /* reap all requests and destroy the queue */
 void ioqueue_destroy();
 ```
+
+When a completed I/O request is reaped from the queue, the callback will be executed with three arguments:
+* `arg` - the \[optional] `cb_arg` argument supplied with the callback to the original ioqueue request
+* `res` - the return value of the `pread` or `pwrite` call
+* `buf` - the buffer passed to `pread` or `pwrite`, as supplied to the original ioqueue request
 
 The included [benchmark][benchmark] is the best usage example. The [`ioqueue_bench()`][ioqueue_bench] function contains the ioqueue API calls.
 
