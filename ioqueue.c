@@ -179,6 +179,11 @@ ioqueue_request_finish(struct ioqueue_request *const req, ssize_t res, int err)
 /* enqueue a pread request  */
 int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_data)
 {
+    if (fd < 0 || buf == NULL || len == 0 || cb == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
     struct ioqueue_request *const req = ioqueue_request_alloc();
     if (req == NULL) return -1;
 
@@ -199,6 +204,11 @@ int ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, vo
 /* enqueue a pwrite request  */
 int ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *cb_data)
 {
+    if (fd < 0 || buf == NULL || len == 0 || cb == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
     struct ioqueue_request *const req = ioqueue_request_alloc();
     if (req == NULL) return -1;
 
