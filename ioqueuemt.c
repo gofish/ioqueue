@@ -310,7 +310,7 @@ ioqueue_pread(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void *
     unsigned int tries;
     struct ioqueue_request req;
 
-    if (len > SSIZE_MAX) {
+    if (buf == NULL || len == 0 || len > SSIZE_MAX || cb == NULL) {
         errno = EINVAL;
         return -1;
     }
@@ -339,7 +339,7 @@ ioqueue_pwrite(int fd, void *buf, size_t len, off_t offset, ioqueue_cb cb, void 
     unsigned int tries;
     struct ioqueue_request req;
 
-    if (len > SSIZE_MAX) {
+    if (buf == NULL || len == 0 || len > SSIZE_MAX || cb == NULL) {
         errno = EINVAL;
         return -1;
     }

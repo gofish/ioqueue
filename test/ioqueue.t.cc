@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <gtest/gtest.h>
@@ -156,4 +157,9 @@ TEST_F(TEST_NAME(TestClass), BadFileReadTest)
     ASSERT_EQ(1, ioqueue_reap(1));
     ASSERT_EQ(-1, res_);
     ASSERT_EQ(EBADF, err_);
+
+    ASSERT_EQ(-1, ioqueue_pread(fd_, NULL, 512, 0, &Callback, this));
+    ASSERT_EQ(-1, ioqueue_pread(fd_, buf_, 0, 0, &Callback, this));
+    ASSERT_EQ(-1, ioqueue_pread(fd_, buf_, SIZE_MAX, 0, &Callback, this));
+    ASSERT_EQ(-1, ioqueue_pread(fd_, buf_, 512, 0, NULL, this));
 }
