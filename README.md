@@ -51,14 +51,20 @@ int  ioqueue_eventfd();
 Build
 ----
 
-Use `make`.
-
-Requirements for KAIO backend (`make libioqueue.a`):
+Use `make`. Requirements:
 
 * Linux kernel >= 2.6.22
 * librt (for benchmark)
 * libaio (for KAIO backend, via package "libaio-dev" on Ubuntu)
 * libgtest (a.k.a. googletest for tests, via "libgtest-dev" on Ubuntu)
+
+For example, on Ubuntu 16.04 a manual build might look like
+
+```
+$ cc -g -O1 -c ioqueue.c -o ioqueue.o
+$ g++ -g -O1 -c benchmark/bench.cc -o benchmark/bench.o
+$ g++ -g -pthread -o benchmark/bench benchmark/bench.o ioqueue.o -laio -lrt
+```
 
 [open]: http://man7.org/linux/man-pages/man2/open.2.html
 [KAIO]: https://web.archive.org/web/20150406015143/http://code.google.com/p/kernel/wiki/AIOUserGuide
