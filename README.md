@@ -11,7 +11,7 @@ The library is a small wrapper around each of two backends, one implemented usin
 API
 ---
 
-The API is single-threaded and is intended to be used in a single process with no threads, or via a single I/O manager thread. I/O requests submitted via `ioqueue_{pread,pwrite}` are asynchronous and will not begin to execute until after the next call to `ioqueue_reap`, which blocks.
+The API is single-threaded and is intended to be used in a single process with no threads, or via a single I/O manager thread. I/O requests submitted via `ioqueue_{pread,pwrite}` are asynchronous and will not begin to execute until after the next call to `ioqueue_reap`, which blocks for the specified number of completed requests and executes their callback functions.
 
 When using the Linux KAIO backend, file descriptors passed to `ioqueue_{pread,write}` are required to have been [opened][open] with flag O\_DIRECT. The threaded backend may be used with O\_DIRECT or e.g. with POSIX\_FADV\_NOREUSE. Applications will likely incur lower CPU usage using the KAIO backend.
 
