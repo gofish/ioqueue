@@ -7,7 +7,6 @@ SRCS += ioqueue.t.cc
 
 $(call depends,ioqueue.t,../libioqueue.a)
 $(call depends_ext,ioqueue.t,-laio)
-$(call depends_ext,ioqueue.t,-lrt)
 $(call test,ioqueue.t)
 
 TGTS += ioqueuemt.t
