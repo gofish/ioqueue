@@ -46,7 +46,11 @@
 /* the request eventfd */
 #define IOCB_RESFD(iocbp)      (*(int*)&((iocbp)->aio_resfd))
 /* the event closure data */
-#define IOEV_DATA(ioev)               (*(void**)&(ioev)->data)
+#define IOEV_DATA(ioev)               (*(void**)&((ioev)->data))
+/* the event result code */
+#define IOEV_RESULT(ioev)       (*(ssize_t*)&((ioev)->res))
+/* the event error code */
+#define IOEV_ERROR(ioev)        (*(int*)&((ioev)->res2))
 
 /* KAIO syscalls - wrappers provided by libaio */
 extern int io_setup(unsigned depth, aio_context_t *ctxp);
@@ -232,7 +236,8 @@ static int ioqueue_submit(unsigned int *nerr)
     unsigned int i, n;
     int ret;
     for (i = 0, n = 0; i < _nwait;) {
-        ret = io_submit(_ctx, _nwait - i, _io_reqs + i);
+        const long requestCount = (long)(_nwait - i);
+        ret = io_submit(_ctx, requestCount, _io_reqs + i);
         if (ret < 0) {
             if (-ret == EBADF) {
                 /* head of the queue is bad, finish the request and continue */
@@ -240,7 +245,7 @@ static int ioqueue_submit(unsigned int *nerr)
                 i ++;
             } else {
                 /* ensure wait-queue occupies the head of the array */
-                memmove(_io_reqs, _io_reqs + i, (size_t)(_nwait - i));
+                memmove(_io_reqs, _io_reqs + i, (size_t)(requestCount));
                 _nwait -= i;
                 errno = -ret;
                 return -1;
@@ -259,13 +264,13 @@ static int ioqueue_submit(unsigned int *nerr)
 }
 
 /* fetch and process any completed requests */
-int ioqueue_reap(unsigned int min)
+int ioqueue_reap(unsigned int minRequestCount)
 {
     int ret, i;
     unsigned int nerr;
 
     /* cannot wait for more requests than have been allocated */
-    if (_nfree == _nreqs || min > _nreqs || (unsigned int)min > _nreqs - _nfree) {
+    if (_nfree == _nreqs || minRequestCount > _nreqs || minRequestCount > _nreqs - _nfree) {
         errno = EINVAL;
         return -1;
     }
@@ -276,12 +281,12 @@ int ioqueue_reap(unsigned int min)
 
     /* re-adjust minimum to account for EBADF-finished requests */
     if (nerr > 0) {
-        min -= nerr;
+        minRequestCount -= nerr;
     }
 
-    /* block for at least 'min' completion events */
+    /* block until at least the minimum number of requests have completed */
     do {
-        ret = io_getevents(_ctx, min, _depth, _io_evs, NULL);
+        ret = io_getevents(_ctx, (long)(minRequestCount), (long)(_depth), _io_evs, NULL);
     } while (ret < 0 && errno == EINTR);
     if (ret < 0) {
         return ret;
@@ -289,7 +294,12 @@ int ioqueue_reap(unsigned int min)
 
     /* finish the reaped requests */
     for (i = 0; i < ret; i++) {
-        ioqueue_request_finish(IOEV_DATA(&_io_evs[i]), _io_evs[i].res, (int)_io_evs[i].res2);
+        const struct io_event *const event = &_io_evs[i];
+        ioqueue_request_finish(
+                IOEV_DATA(event),
+                IOEV_RESULT(event),
+                IOEV_ERROR(event)
+        );
     }
     /* return the number of completed requests */
     return ret + (int)nerr;

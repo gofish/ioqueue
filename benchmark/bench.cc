@@ -171,11 +171,11 @@ next_read_request(struct random_data *rdata)
     } res;
     random_r(rdata, &res.r[0]);
     random_r(rdata, &res.r[1]);
-    // random file descriptor from those opened
-    size_t i = (res.val & (BUFSIZE - 1)) % _files.size();
+    // use the low order bits to pick a random file descriptor and length from those opened
+    size_t i = (size_t)((res.val & (BUFSIZE - 1)) % (uint64_t)(_files.size()));
     pair<int, off_t> f = _files[i];
-    // random offset with BUFSIZE alignment
-    f.second = ((res.val & ~(BUFSIZE - 1)) % f.second);
+    // use the high order bits as a random offset with BUFSIZE alignment within the length of the file
+    f.second = (off_t)((res.val & ~(BUFSIZE - 1)) % (uint64_t)(f.second));
     return f;
 }
 
